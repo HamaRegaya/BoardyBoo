@@ -12,29 +12,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { base64ToArrayBuffer } from "@/lib/utils";
+import type {
+  TranscriptEntry,
+  CanvasCommand,
+  ConnectionStatus,
+  ConnectOptions,
+} from "@/types/whiteboard";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface TranscriptEntry {
-  id: string;
-  role: "user" | "agent";
-  text: string;
-  agentName?: string;
-  partial: boolean;
-  timestamp: number;
-}
-
-export interface CanvasCommand {
-  tool: string;
-  action: "add" | "replace" | "clear";
-  elements: any[];
-}
-
-export type ConnectionStatus = "disconnected" | "connecting" | "connected";
-
-interface ConnectOptions {
-  onAudio?: (pcmBytes: ArrayBuffer) => void;
-}
+// Re-export types for consumers that import from this hook
+export type { TranscriptEntry, CanvasCommand, ConnectionStatus };
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -323,16 +310,4 @@ export function useWebSocket() {
   };
 }
 
-// ── Utilities ────────────────────────────────────────────────────────────────
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  // Handle base64url → standard base64
-  let std = base64.replace(/-/g, "+").replace(/_/g, "/");
-  while (std.length % 4) std += "=";
-  const binary = atob(std);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
+// base64ToArrayBuffer is imported from @/lib/utils

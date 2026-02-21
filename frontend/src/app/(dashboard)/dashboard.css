@@ -471,3 +471,135 @@
 .light-mode .dash-activity-resume:hover {
     background: rgba(15, 23, 42, 0.1);
 }
+
+/* ── Tutors Page Layout ─────────────────────────────── */
+.tutor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
+}
+
+.tutor-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tutor-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px var(--shadow-color);
+}
+
+.tutor-img-wrapper {
+    width: 100%;
+    height: 320px;
+    position: relative;
+    background: var(--bg-hover);
+}
+
+.tutor-content {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.tutor-content h2 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--fg-main);
+    margin-bottom: 8px;
+}
+
+.tutor-badge {
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+}
+
+.tutor-card.guide .tutor-badge {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+
+.tutor-card.professor .tutor-badge {
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+}
+
+.tutor-card.buddy .tutor-badge {
+    background: rgba(244, 114, 182, 0.15);
+    color: #f472b6;
+}
+
+.tutor-content p {
+    font-size: 14px;
+    color: var(--fg-muted);
+    line-height: 1.6;
+    margin-bottom: 32px;
+    flex: 1;
+}
+
+.tutor-select-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+/* Specific button styles */
+.tutor-card.guide .tutor-select-btn {
+    background: #0ea5e9;
+    color: white;
+}
+
+.tutor-card.guide .tutor-select-btn:hover {
+    background: #0284c7;
+}
+
+.tutor-card.guide:hover {
+    border-color: #0ea5e9;
+}
+
+.tutor-card.professor .tutor-select-btn {
+    background: #9333ea;
+    color: white;
+}
+
+.tutor-card.professor .tutor-select-btn:hover {
+    background: #7e22ce;
+}
+
+.tutor-card.professor:hover {
+    border-color: #9333ea;
+}
+
+.tutor-card.buddy .tutor-select-btn {
+    background: #ec4899;
+    color: white;
+}
+
+.tutor-card.buddy .tutor-select-btn:hover {
+    background: #db2777;
+}
+
+.tutor-card.buddy:hover {
+    border-color: #ec4899;
+}

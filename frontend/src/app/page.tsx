@@ -2,7 +2,7 @@
 
 /**
  * BoardyBoo — Landing Page
- * Gemini Live Agent Challenge entry
+ * AI Whiteboard Tutor
  */
 
 import "./landing.css";
@@ -198,7 +198,7 @@ const FEATURES = [
     desc: "No typing needed. Talk to BoardyBoo exactly as you would a human tutor — it hears you, understands you, and responds instantly.",
     color: "var(--primary)",
     glow: "rgba(67,97,238,0.10)",
-    image: "/images/features/interactive.png"
+    image: "https://images.unsplash.com/photo-1589903308904-1010c2294adc?auto=format&fit=crop&w=800&q=80"
   },
   {
     Icon: IconWaveform,
@@ -206,7 +206,7 @@ const FEATURES = [
     desc: "BoardyBoo doesn't just talk back — it draws. Equations, diagrams, arrows, step-by-step solutions, all appearing live on the whiteboard as it explains.",
     color: "var(--accent)",
     glow: "rgba(247,37,133,0.10)",
-    image: "/images/features/visual.png"
+    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80"
   },
   {
     Icon: IconBrain,
@@ -214,7 +214,7 @@ const FEATURES = [
     desc: "Maths, chemistry, geometry, history — ask anything. BoardyBoo adapts its explanations to whatever you need help with, right now.",
     color: "#7209b7",
     glow: "rgba(114,9,183,0.10)",
-    image: "/images/features/smart.png"
+    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80"
   },
   {
     Icon: IconEye,
@@ -222,7 +222,7 @@ const FEATURES = [
     desc: "The more you use it, the more it picks up on what you understand and what needs more work. Learning that adapts to you — not the other way around.",
     color: "var(--success)",
     glow: "rgba(6,214,160,0.10)",
-    image: "/images/features/adaptive.png"
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80"
   },
 ];
 
@@ -336,7 +336,7 @@ export default function HomePage() {
           <div className="land-hero-text">
             <div className="land-hackathon-badge">
               <IconZap />
-              Gemini Live Agent Challenge
+              Experience the Future of Learning
             </div>
             <h1 className="land-headline">
               The AI tutor that{" "}
@@ -396,7 +396,7 @@ export default function HomePage() {
           <div className="land-section-label">Beyond the text box</div>
           <h2 className="land-section-title">See, Hear, Speak, Draw.</h2>
           <p className="land-section-sub">
-            Built for the <strong>Gemini Live Agent Challenge</strong>. BoardyBoo leverages the power of multimodal AI to create an immersive, real-time learning experience that moves completely beyond simple chat interfaces.
+            Built for the <strong>future of education</strong>. BoardyBoo leverages the power of multimodal AI to create an immersive, real-time learning experience that moves completely beyond simple chat interfaces.
           </p>
 
           <div className="land-multimodal-grid">
@@ -417,11 +417,11 @@ export default function HomePage() {
 
           <div className="land-challenge-banner">
             <div className="land-challenge-text">
-              <h3>Live Agent Category Entry 🏆</h3>
-              <p>Showcasing real-time audio interaction interrupted gracefully, paired with visual whiteboard rendering (interleaved mixed-media output).</p>
+              <h3>Powered by Advanced Multimodal AI 🔮</h3>
+              <p>Experience real-time voice interactions seamlessly synchronized with dynamic visual whiteboard explanations.</p>
             </div>
             <div className="land-challenge-badge">
-              Powered by Gemini Live API
+              Built for Students
             </div>
           </div>
         </div>
@@ -526,7 +526,7 @@ export default function HomePage() {
             <span className="land-brand-name">BoardyBoo</span>
           </div>
           <p className="land-footer-copy">
-            Built for the Gemini Live Agent Challenge &mdash; &copy; {new Date().getFullYear()}
+            Built for Students Everywhere &mdash; &copy; {new Date().getFullYear()}
           </p>
           <a
             href="https://github.com/HamaRegaya/BoardyBoo"

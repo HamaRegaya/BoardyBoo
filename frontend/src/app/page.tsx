@@ -245,6 +245,39 @@ const STEPS = [
   },
 ];
 
+// ── Multimodal Challenge Capabilities ──────────────────────────────────────────
+
+const MULTIMODAL_CAPABILITIES = [
+  {
+    icon: <IconEye />,
+    title: "See",
+    desc: "Visual context. BoardyBoo can 'see' the whiteboard, understand diagrams, and read what’s written to help you better.",
+    color: "#4ade80",
+    glow: "rgba(74, 222, 128, 0.15)",
+  },
+  {
+    icon: <IconWaveform />,
+    title: "Hear",
+    desc: "Real-time audio. No wake words, no waiting. Interrupt it, ask questions naturally, and get instant voice responses.",
+    color: "#f472b6",
+    glow: "rgba(244, 114, 182, 0.15)",
+  },
+  {
+    icon: <IconMic />,
+    title: "Speak",
+    desc: "Natural conversations. BoardyBoo speaks back with a fluid, lifelike voice that makes learning feel like a true dialogue.",
+    color: "#60a5fa",
+    glow: "rgba(96, 165, 250, 0.15)",
+  },
+  {
+    icon: <IconPen />,
+    title: "Draw",
+    desc: "Live visual output. It doesn't just talk, it draws equations, arrows, and step-by-step solutions right on your screen.",
+    color: "#c084fc",
+    glow: "rgba(192, 132, 252, 0.15)",
+  }
+];
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -352,6 +385,43 @@ export default function HomePage() {
       </section>
 
 
+
+      {/* ── Multimodal ───────────────────────────────────────── */}
+      <section className="land-section land-section-dark" id="multimodal">
+        <div className="land-section-inner">
+          <div className="land-section-label">Beyond the text box</div>
+          <h2 className="land-section-title">See, Hear, Speak, Draw.</h2>
+          <p className="land-section-sub">
+            Built for the <strong>Gemini Live Agent Challenge</strong>. BoardyBoo leverages the power of multimodal AI to create an immersive, real-time learning experience that moves completely beyond simple chat interfaces.
+          </p>
+
+          <div className="land-multimodal-grid">
+            {MULTIMODAL_CAPABILITIES.map((cap) => (
+              <div
+                key={cap.title}
+                className="land-mm-card"
+                style={{ "--card-glow": cap.glow } as React.CSSProperties}
+              >
+                <div className="land-mm-icon-wrap" style={{ color: cap.color }}>
+                  {cap.icon}
+                </div>
+                <h3>{cap.title}</h3>
+                <p>{cap.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="land-challenge-banner">
+            <div className="land-challenge-text">
+              <h3>Live Agent Category Entry 🏆</h3>
+              <p>Showcasing real-time audio interaction interrupted gracefully, paired with visual whiteboard rendering (interleaved mixed-media output).</p>
+            </div>
+            <div className="land-challenge-badge">
+              Powered by Gemini Live API
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── Features ─────────────────────────────────────────── */}
       <section className="land-section" id="features">

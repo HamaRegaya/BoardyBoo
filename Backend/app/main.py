@@ -30,6 +30,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from app.agents.tutor_agent import build_tutor_agent
 from app.config import settings
 from app.utils.errors import (
     ErrorCategory,
@@ -49,14 +50,38 @@ runner: Runner | None = None
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Initialise ADK agent & runner once at startup."""
+    global session_service, runner
 
+    setup_logging(settings.log_level)
+    logger.info("Initialising Magic Whiteboard Tutor backend…")
 
+    # Build agent tree (root + sub-agents)
+    root_agent = build_tutor_agent()
+
+    # Session service — swap to Firestore / Vertex for production persistence
+    session_service = InMemorySessionService()
+
+    # Runner — the ADK orchestrator
+    runner = Runner(
+        agent=root_agent,
+        app_name="magic-whiteboard-tutor",
+        session_service=session_service,
+    )
+    logger.info("ADK Runner ready (agent=%s)", root_agent.name)
+
+    yield  # ← app is running
+
+    logger.info("Shutting down Magic Whiteboard Tutor backend.")
 
 # ── FastAPI App ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Magic Whiteboard Tutor",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

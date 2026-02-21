@@ -14,6 +14,8 @@
     --bg-str-rgb: 8, 8, 15;
     --fg-main: #e8eaf0;
     --fg-str-rgb: 255, 255, 255;
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --shadow-color-hover: rgba(0, 0, 0, 0.6);
     /* for rgba(var(--fg-str-rgb), a) */
 
     min-height: 100vh;
@@ -33,6 +35,8 @@
     --bg-str-rgb: 248, 250, 252;
     --fg-main: #0f172a;
     --fg-str-rgb: 15, 23, 42;
+    --shadow-color: rgba(15, 23, 42, 0.12);
+    --shadow-color-hover: rgba(15, 23, 42, 0.20);
 }
 
 /* ── Navbar ───────────────────────────────────── */
@@ -475,7 +479,7 @@
     border-radius: 16px;
     background: var(--bg-card);
     border: 1px solid rgba(var(--fg-str-rgb), 0.08);
-    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--fg-str-rgb), 0.04);
+    box-shadow: 0 32px 80px var(--shadow-color), 0 0 0 1px rgba(var(--fg-str-rgb), 0.04);
     overflow: hidden;
     transform: perspective(1200px) rotateY(-6deg) rotateX(3deg);
     transition: transform 0.5s ease, box-shadow 0.5s ease;
@@ -483,7 +487,7 @@
 
 .wb-preview:hover {
     transform: perspective(1200px) rotateY(0deg) rotateX(0deg);
-    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(var(--fg-str-rgb), 0.07);
+    box-shadow: 0 40px 100px var(--shadow-color-hover), 0 0 0 1px rgba(var(--fg-str-rgb), 0.07);
 }
 
 .wb-titlebar {

@@ -198,6 +198,7 @@ const FEATURES = [
     desc: "No typing needed. Talk to BoardyBoo exactly as you would a human tutor — it hears you, understands you, and responds instantly.",
     color: "var(--primary)",
     glow: "rgba(67,97,238,0.10)",
+    image: "/images/features/interactive.png"
   },
   {
     Icon: IconWaveform,
@@ -205,6 +206,7 @@ const FEATURES = [
     desc: "BoardyBoo doesn't just talk back — it draws. Equations, diagrams, arrows, step-by-step solutions, all appearing live on the whiteboard as it explains.",
     color: "var(--accent)",
     glow: "rgba(247,37,133,0.10)",
+    image: "/images/features/visual.png"
   },
   {
     Icon: IconBrain,
@@ -212,6 +214,7 @@ const FEATURES = [
     desc: "Maths, chemistry, geometry, history — ask anything. BoardyBoo adapts its explanations to whatever you need help with, right now.",
     color: "#7209b7",
     glow: "rgba(114,9,183,0.10)",
+    image: "/images/features/smart.png"
   },
   {
     Icon: IconEye,
@@ -219,6 +222,7 @@ const FEATURES = [
     desc: "The more you use it, the more it picks up on what you understand and what needs more work. Learning that adapts to you — not the other way around.",
     color: "var(--success)",
     glow: "rgba(6,214,160,0.10)",
+    image: "/images/features/adaptive.png"
   },
 ];
 
@@ -439,11 +443,17 @@ export default function HomePage() {
                 className="land-feature-card"
                 style={{ "--card-glow": f.glow, "--card-color": f.color } as React.CSSProperties}
               >
-                <div
-                  className="land-feature-icon"
-                  style={{ background: f.glow, color: f.color }}
-                >
-                  <f.Icon />
+                <div className="land-feature-header-row">
+                  <div
+                    className="land-feature-icon"
+                    style={{ background: f.glow, color: f.color }}
+                  >
+                    <f.Icon />
+                  </div>
+                </div>
+                <div className="land-feature-image">
+                  {/* Using standard img to avoid Next.js image optimization errors locally */}
+                  <img src={f.image} alt={f.title} />
                 </div>
                 <h3>{f.title}</h3>
                 <p>{f.desc}</p>

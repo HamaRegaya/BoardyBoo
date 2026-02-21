@@ -882,6 +882,28 @@
     transform: scale(1.08) rotate(-3deg);
 }
 
+.land-feature-image {
+    width: 100%;
+    height: 140px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.land-feature-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.land-feature-card:hover .land-feature-image img {
+    transform: scale(1.05);
+}
+
 .land-feature-tag {
     font-size: 10px;
     font-weight: 700;

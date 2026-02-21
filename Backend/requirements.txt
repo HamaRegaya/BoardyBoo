@@ -1,0 +1,32 @@
+# Magic Whiteboard Tutor - Backend Dependencies
+# Generated from installed packages
+
+# Google ADK & GenAI
+google-adk==1.25.1
+google-genai==1.64.0
+
+# Google Cloud services
+google-cloud-firestore==2.23.0
+google-cloud-storage==3.9.0
+google-auth==2.48.0
+google-api-python-client==2.190.0
+google-auth-oauthlib>=1.2.1
+
+# Web framework
+fastapi==0.129.0
+uvicorn[standard]==0.41.0
+websockets==15.0.1
+
+# Config & validation
+pydantic==2.12.5
+pydantic-settings==2.13.1
+python-dotenv==1.2.1
+
+# HTTP & networking
+httpx==0.28.1
+
+# MCP tool support
+mcp==1.26.0
+
+# Image processing
+pillow==12.1.1

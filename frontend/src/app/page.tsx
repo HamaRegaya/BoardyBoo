@@ -2,7 +2,7 @@
 
 /**
  * BoardyBoo — Landing Page
- * Gemini Live Agent Challenge entry
+ * AI Whiteboard Tutor
  */
 
 import "./landing.css";
@@ -56,6 +56,26 @@ const IconArrow = () => (
 const IconPlay = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+);
+
+const IconSun = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5"></circle>
+    <line x1="12" y1="1" x2="12" y2="3"></line>
+    <line x1="12" y1="21" x2="12" y2="23"></line>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+    <line x1="1" y1="12" x2="3" y2="12"></line>
+    <line x1="21" y1="12" x2="23" y2="12"></line>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+  </svg>
+);
+
+const IconMoon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
   </svg>
 );
 
@@ -245,10 +265,60 @@ const STEPS = [
   },
 ];
 
+// ── Multimodal Challenge Capabilities ──────────────────────────────────────────
+
+const MULTIMODAL_CAPABILITIES = [
+  {
+    icon: <IconEye />,
+    title: "See",
+    desc: "Visual context. BoardyBoo can 'see' the whiteboard, understand diagrams, and read what’s written to help you better.",
+    color: "#4ade80",
+    glow: "rgba(74, 222, 128, 0.15)",
+  },
+  {
+    icon: <IconWaveform />,
+    title: "Hear",
+    desc: "Real-time audio. No wake words, no waiting. Interrupt it, ask questions naturally, and get instant voice responses.",
+    color: "#f472b6",
+    glow: "rgba(244, 114, 182, 0.15)",
+  },
+  {
+    icon: <IconMic />,
+    title: "Speak",
+    desc: "Natural conversations. BoardyBoo speaks back with a fluid, lifelike voice that makes learning feel like a true dialogue.",
+    color: "#60a5fa",
+    glow: "rgba(96, 165, 250, 0.15)",
+  },
+  {
+    icon: <IconPen />,
+    title: "Draw",
+    desc: "Live visual output. It doesn't just talk, it draws equations, arrows, and step-by-step solutions right on your screen.",
+    color: "#c084fc",
+    glow: "rgba(192, 132, 252, 0.15)",
+  }
+];
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const [scrolled, setScrolled] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    // Check local storage or system preference on mount
+    const savedTheme = localStorage.getItem('boardyboo-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      setTheme(savedTheme as 'dark' | 'light');
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setTheme('light');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('boardyboo-theme', newTheme);
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -257,7 +327,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="land">
+    <div className={`land ${theme === 'light' ? 'light-mode' : ''}`}>
 
       {/* ── Navbar ──────────────────────────────────────────── */}
       <nav className={`land-nav ${scrolled ? "scrolled" : ""}`}>
@@ -271,6 +341,9 @@ export default function HomePage() {
             <a href="#how-it-works">How it works</a>
           </div>
           <div className="land-nav-actions">
+            <button className="land-theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+              {theme === 'dark' ? <IconSun /> : <IconMoon />}
+            </button>
             <a
               href="https://github.com/HamaRegaya/BoardyBoo"
               target="_blank"
@@ -299,7 +372,7 @@ export default function HomePage() {
           <div className="land-hero-text">
             <div className="land-hackathon-badge">
               <IconZap />
-              Gemini Live Agent Challenge
+              Experience the Future of Learning
             </div>
             <h1 className="land-headline">
               The AI tutor that{" "}
@@ -352,6 +425,43 @@ export default function HomePage() {
       </section>
 
 
+
+      {/* ── Multimodal ───────────────────────────────────────── */}
+      <section className="land-section land-section-dark" id="multimodal">
+        <div className="land-section-inner">
+          <div className="land-section-label">Beyond the text box</div>
+          <h2 className="land-section-title">See, Hear, Speak, Draw.</h2>
+          <p className="land-section-sub">
+            Built for the <strong>future of education</strong>. BoardyBoo leverages the power of multimodal AI to create an immersive, real-time learning experience that moves completely beyond simple chat interfaces.
+          </p>
+
+          <div className="land-multimodal-grid">
+            {MULTIMODAL_CAPABILITIES.map((cap) => (
+              <div
+                key={cap.title}
+                className="land-mm-card"
+                style={{ "--card-glow": cap.glow } as React.CSSProperties}
+              >
+                <div className="land-mm-icon-wrap" style={{ color: cap.color }}>
+                  {cap.icon}
+                </div>
+                <h3>{cap.title}</h3>
+                <p>{cap.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="land-challenge-banner">
+            <div className="land-challenge-text">
+              <h3>Powered by Advanced Multimodal AI 🔮</h3>
+              <p>Experience real-time voice interactions seamlessly synchronized with dynamic visual whiteboard explanations.</p>
+            </div>
+            <div className="land-challenge-badge">
+              Built for Students
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── Features ─────────────────────────────────────────── */}
       <section className="land-section" id="features">
@@ -446,7 +556,7 @@ export default function HomePage() {
             <span className="land-brand-name">BoardyBoo</span>
           </div>
           <p className="land-footer-copy">
-            Built for the Gemini Live Agent Challenge &mdash; &copy; {new Date().getFullYear()}
+            Built for Students Everywhere &mdash; &copy; {new Date().getFullYear()}
           </p>
           <a
             href="https://github.com/HamaRegaya/BoardyBoo"

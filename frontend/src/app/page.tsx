@@ -344,16 +344,11 @@ export default function HomePage() {
             <button className="land-theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'dark' ? <IconSun /> : <IconMoon />}
             </button>
-            <a
-              href="https://github.com/HamaRegaya/BoardyBoo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="land-nav-ghost"
-            >
-              <IconGithub /> GitHub
-            </a>
+            <Link href="/dashboard" className="land-nav-ghost">
+              Dashboard
+            </Link>
             <Link href="/board" className="land-nav-cta">
-              Launch App <IconArrow />
+              Launch Whiteboard <IconArrow />
             </Link>
           </div>
         </div>
@@ -385,19 +380,14 @@ export default function HomePage() {
               Just learning, in real time.
             </p>
             <div className="land-cta-group">
-              <Link href="/board" className="land-btn-primary">
+              <Link href="/dashboard" className="land-btn-primary">
                 <IconPlay />
-                <span>Try Live Demo</span>
+                <span>Explore the Platform</span>
               </Link>
-              <a
-                href="https://github.com/HamaRegaya/BoardyBoo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="land-btn-ghost"
-              >
-                <IconGithub />
-                <span>View on GitHub</span>
-              </a>
+              <Link href="/board" className="land-btn-ghost">
+                <IconPen />
+                <span>Open Whiteboard</span>
+              </Link>
             </div>
 
             {/* Capability pills */}
@@ -533,17 +523,12 @@ export default function HomePage() {
             BoardyBoo draw the answer — no setup, no sign-up.
           </p>
           <div className="land-cta-actions">
-            <Link href="/board" className="land-btn-primary land-btn-large">
-              <IconPlay /> Launch the Demo
+            <Link href="/dashboard" className="land-btn-primary land-btn-large">
+              <IconPlay /> Explore the Platform
             </Link>
-            <a
-              href="https://github.com/HamaRegaya/BoardyBoo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="land-btn-outline"
-            >
-              <IconGithub /> View source
-            </a>
+            <Link href="/board" className="land-btn-outline land-btn-large">
+              <IconPen /> Open Whiteboard
+            </Link>
           </div>
         </div>
       </section>

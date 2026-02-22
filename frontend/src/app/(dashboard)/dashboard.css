@@ -474,92 +474,160 @@
 
 
 
-/* ── Minimal Tutors Page Layout ────────────────────── */
-.tutor-minimal-page {
+
+/* ── Professional Tutors Page Layout ────────────────────── */
+.tutor-pro-page {
     position: relative;
     z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
-.tutor-grid.minimal {
-    display: flex;
-    justify-content: center;
-    gap: 24px;
+.tutor-grid.pro {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
     padding-bottom: 60px;
-    flex-wrap: wrap;
 }
 
-.tutor-card.minimal {
+.tutor-card.pro {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: 24px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    width: 260px;
-    /* Much smaller fixed width */
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 0 4px 12px var(--shadow-color);
+    position: relative;
 }
 
-.tutor-card.minimal:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px var(--shadow-color);
+.tutor-card.pro:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px var(--shadow-color);
     border-color: var(--primary);
 }
 
-.tutor-card.minimal .tutor-img-wrapper {
+.tutor-card-bg {
+    height: 120px;
     width: 100%;
-    height: 200px;
-    position: relative;
-    background: var(--bg-hover);
+    background: linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.15) 100%);
     border-bottom: 1px solid var(--border-color);
 }
 
-.tutor-card.minimal .tutor-content {
-    padding: 16px;
+.tutor-card.pro.guide .tutor-card-bg {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(56, 189, 248, 0.15) 100%);
+}
+
+.tutor-card.pro.professor .tutor-card-bg {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(168, 85, 247, 0.15) 100%);
+}
+
+.tutor-card.pro.buddy .tutor-card-bg {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.15) 100%);
+}
+
+.tutor-avatar-circle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 4px solid var(--bg-main);
+    padding: 12px;
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    overflow: hidden;
+}
+
+.tutor-avatar-circle img {
+    border-radius: 50%;
+}
+
+.tutor-content {
+    padding: 85px 24px 24px; /* Padding top to account for overlapping avatar */
     display: flex;
     flex-direction: column;
     flex: 1;
     align-items: center;
     text-align: center;
+    background: var(--bg-card);
 }
 
-.tutor-card.minimal h2 {
-    font-size: 18px;
-    font-weight: 700;
+.tutor-header-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.tutor-content h2 {
+    font-size: 24px;
+    font-weight: 800;
     color: var(--fg-main);
-    margin-bottom: 8px;
 }
 
-.tutor-card.minimal p {
-    font-size: 13px;
+.tutor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tutor-badge.socratic { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+.tutor-badge.direct { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+.tutor-badge.high-energy { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+.tutor-content p {
+    font-size: 14px;
     color: var(--fg-muted);
-    line-height: 1.5;
-    margin-bottom: 20px;
+    line-height: 1.6;
+    margin-bottom: 32px;
     flex: 1;
 }
 
-.tutor-card.minimal .tutor-select-btn {
+.tutor-actions {
+    width: 100%;
+}
+
+.tutor-select-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
     text-decoration: none;
     background: var(--bg-hover);
     color: var(--fg-main);
     border: 1px solid var(--border-color);
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 }
 
-.tutor-card.minimal:hover .tutor-select-btn {
+.tutor-card.pro:hover .tutor-select-btn {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
+}
+
+@media (max-width: 900px) {
+    .tutor-grid.pro {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+        margin: 0 auto;
+    }
 }
 
 /* ── Tutor Profile Page ─────────────────────────────── */

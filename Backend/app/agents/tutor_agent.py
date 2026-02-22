@@ -21,7 +21,7 @@ import logging
 from google.adk.agents import Agent
 
 from app.agents.calendar_agent import build_calendar_agent
-from app.agents.media_agent import build_media_agent
+# from app.agents.media_agent import build_media_agent
 from app.agents.planner_agent import build_planner_agent
 from app.agents.progress_agent import build_progress_agent
 from app.config import settings
@@ -117,7 +117,7 @@ def build_tutor_agent() -> Agent:
     # Sub-agents (canvas tools are on the root tutor agent directly)
     planner = build_planner_agent()
     calendar = build_calendar_agent()
-    media = build_media_agent()
+    # media = build_media_agent()
     progress = build_progress_agent()
 
     # Root agent — uses model string; speech_config is set via RunConfig

@@ -35,7 +35,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const navItems = [
         { name: "Dashboard", href: "/dashboard" },
         { name: "Library", href: "/library" },
-        { name: "Progress", href: "/courses" }, // Mockup uses "Progress"
+        { name: "Progress", href: "/courses" },
+        { name: "My Tutors", href: "/tutors" },
         { name: "Settings", href: "/profile" },
     ];
 
@@ -94,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </header>
 
             {/* ── Main Content Area ──────────────────────────────── */}
-            <main className="dash-main">
+            <main className={`dash-main ${pathname === '/tutors' ? 'no-padding' : ''}`}>
                 {children}
             </main>
         </div>

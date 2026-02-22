@@ -5,7 +5,7 @@ import "../dashboard.css";
 
 export default function TutorsPage() {
     return (
-        <div className="dash-page tutors-v2-page">
+        <div className="tutors-v2-page">
 
             {/* ── Inner Left Sidebar (Filters) ────────────────────── */}
             <aside className="tutors-filter-sidebar">

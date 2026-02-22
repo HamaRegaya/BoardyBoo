@@ -475,22 +475,29 @@
 
 
 
+
+.dash-main.no-padding {
+    padding: 0;
+    overflow: hidden; /* Delegate scrolling to inner content */
+}
+
 /* ── Phase 9: Tutors Page Redesign (Grid & Filters) ────────── */
 .tutors-v2-page {
     display: flex;
-    gap: 32px;
-    height: calc(100vh - 80px); /* Fill remaining height */
-    overflow: hidden; /* Prevent scrolling on the wrapper */
+    height: 100%;
+    background: var(--bg-main);
+    overflow: hidden;
 }
 
 /* ── Inner Sidebar (Filters) ── */
 .tutors-filter-sidebar {
-    width: 240px;
+    width: 280px;
+    background: var(--bg-sidebar); /* distinct from main bg */
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 24px;
-    padding-right: 24px;
+    padding: 32px 24px;
     border-right: 1px solid var(--border-color);
     overflow-y: auto;
 }
@@ -607,7 +614,7 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    padding-bottom: 40px;
+    padding: 32px 40px;
 }
 
 /* Header Section */
@@ -676,6 +683,7 @@
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
     transition: opacity 0.2s;
 }
@@ -690,6 +698,7 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 32px;
+    flex-wrap: wrap;
 }
 
 .filter-pill {
@@ -723,6 +732,33 @@
     cursor: pointer;
     margin-left: 8px;
 }
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .tutors-v2-page {
+        flex-direction: column;
+        overflow: auto;
+    }
+    .tutors-filter-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 24px 32px;
+        height: auto;
+    }
+    .tutors-main-content {
+        padding: 24px 32px;
+    }
+    .tutors-header-section {
+        flex-direction: column;
+        gap: 16px;
+    }
+    .tutors-header-actions {
+        width: 100%;
+        justify-content: space-between; /* fill area nicely */
+    }
+}
+
 
 /* ── Tutors Grid v2 ── */
 .tutors-grid-v2 {

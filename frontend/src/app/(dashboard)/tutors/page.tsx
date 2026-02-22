@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ArrowRight, Sparkles, Search, Plus, X, ChevronDown, Check } from "lucide-react";
+import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import "./tutors.css";
+import "../dashboard.css";
 
 // --- Mock Data for Tutors ---
 type Tutor = {
@@ -27,7 +27,7 @@ const INITIAL_TUTORS: Tutor[] = [
     {
         id: "guide",
         name: "Prof. Algebra",
-        desc: "Patient math expert specializing in Calculus and Geometry...",
+        desc: "Patient math expert specializing in Calculus and Geometry. Explains complex formulas step-by-step.",
         href: "/tutors/guide",
         status: "Active",
         timeAgo: "2h ago",
@@ -38,13 +38,12 @@ const INITIAL_TUTORS: Tutor[] = [
         tags: [
             { label: "Math", color: "brand" },
             { label: "Calculus", color: "gray" },
-            { label: "Visual", color: "gray" },
         ]
     },
     {
         id: "buddy",
         name: "Madame Lingua",
-        desc: "Native French speaker with a strict but effective immersion approach...",
+        desc: "Native French speaker with a strict but effective immersion approach. Great for conversation practice.",
         href: "/tutors/buddy",
         status: "Idle",
         timeAgo: "1d ago",
@@ -54,13 +53,12 @@ const INITIAL_TUTORS: Tutor[] = [
         level: "Intermediate",
         tags: [
             { label: "French", color: "purple" },
-            { label: "Strict", color: "gray" },
         ]
     },
     {
         id: "codebot",
         name: "Code Bot",
-        desc: "Expert in Python and JavaScript. Helps debug complex logic...",
+        desc: "Expert in Python and JavaScript. Helps debug complex logic and explains algorithms visually.",
         href: "/tutors/codebot",
         status: "Idle",
         timeAgo: "3d ago",
@@ -69,14 +67,14 @@ const INITIAL_TUTORS: Tutor[] = [
         personality: "Socratic",
         level: "Beginner",
         tags: [
-            { label: "Coding", color: "yellow" },
-            { label: "Python", color: "gray" },
+            { label: "Python", color: "yellow" },
+            { label: "Algorithm", color: "gray" },
         ]
     },
     {
         id: "nova",
         name: "Ms. History",
-        desc: "Specializes in World War II and Ancient Civilizations. Great storyteller...",
+        desc: "Specializes in World War II and Ancient Civilizations. Great storyteller to make history come alive.",
         href: "/tutors/nova",
         status: "New",
         timeAgo: "Never",
@@ -85,14 +83,13 @@ const INITIAL_TUTORS: Tutor[] = [
         personality: "Encouraging",
         level: "Beginner",
         tags: [
-            { label: "History", color: "red" },
-            { label: "Socratic", color: "gray" },
+            { label: "WWII", color: "red" },
         ]
     },
     {
         id: "physics",
         name: "Dr. Physics",
-        desc: "Makes complex physics concepts fun and relatable with real-world...",
+        desc: "Makes complex physics concepts fun and relatable with real-world examples and interactive tests.",
         href: "/tutors/physics",
         status: "Idle",
         timeAgo: "1w ago",
@@ -101,8 +98,7 @@ const INITIAL_TUTORS: Tutor[] = [
         personality: "Humorous",
         level: "Advanced",
         tags: [
-            { label: "Science", color: "blue" },
-            { label: "Physics", color: "gray" },
+            { label: "Physics", color: "blue" },
         ]
     }
 ];
@@ -111,10 +107,13 @@ const SUBJECT_OPTIONS = ["Mathematics", "Science", "Languages", "Coding", "Histo
 const PERSONALITY_OPTIONS = ["Encouraging", "Strict", "Socratic", "Humorous"];
 
 export default function TutorsPage() {
+    const router = useRouter();
+
     // --- State ---
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
     const [selectedPersonalities, setSelectedPersonalities] = useState<string[]>([]);
+    const [showModal, setShowModal] = useState(false);
 
     // Filter toggle handlers
     const toggleSubject = (subj: string) => {
@@ -138,224 +137,342 @@ export default function TutorsPage() {
     // Derived filtering logic
     const filteredTutors = useMemo(() => {
         return INITIAL_TUTORS.filter(tutor => {
-            // Search Match
             const matchesSearch = tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) || tutor.desc.toLowerCase().includes(searchQuery.toLowerCase());
-
-            // Filters
             const matchesSubject = selectedSubjects.length === 0 || tutor.subjects.some(s => selectedSubjects.includes(s));
             const matchesPersonality = selectedPersonalities.length === 0 || selectedPersonalities.includes(tutor.personality);
-
             return matchesSearch && matchesSubject && matchesPersonality;
         });
     }, [searchQuery, selectedSubjects, selectedPersonalities]);
 
-    const activeFilterCount = selectedSubjects.length + selectedPersonalities.length;
+    // Icon helper
+    const getSubjectIcon = (subject: string) => {
+        switch (subject) {
+            case "Mathematics": return <Sigma size={20} />;
+            case "Science": return <Flame size={20} />;
+            case "Languages": return <BookOpen size={20} />;
+            case "Coding": return <Code size={20} />;
+            case "History": return <Lock size={20} />;
+            default: return <Sparkles size={20} />;
+        }
+    };
+
+    const getSubjectColorClass = (subject: string) => {
+        switch (subject) {
+            case "Mathematics": return "math";
+            case "Science": return "science";
+            case "History": return "history";
+            case "Languages": return "math";
+            case "Coding": return "science";
+            default: return "math";
+        }
+    };
 
     return (
-        <div className="tutors-v2-page">
-
-            {/* ── Inner Left Sidebar (Filters) ────────────────────── */}
-            <motion.aside
-                className="tutors-filter-sidebar"
-                initial={{ x: -20, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ duration: 0.4 }}
-            >
-                <div className="filter-group">
-                    <h3 className="filter-title">FILTERS</h3>
+        <div className="dash-page" style={{ padding: '40px 48px' }}>
+            <div className="dash-header-area">
+                <div className="dash-header-text">
+                    <h1 className="dash-title">
+                        My Tutors <Sparkles className="sparkle-icon" size={32} />
+                    </h1>
+                    <p className="dash-subtitle" style={{ marginTop: '6px' }}>Manage your personalized AI learning companions.</p>
                 </div>
-
-                <div className="filter-group collapsible">
-                    <div className="filter-header">
-                        <h4>Subject</h4>
-                        <ChevronDown size={14} className="filter-chevron" />
-                    </div>
-                    <div className="filter-options">
-                        {SUBJECT_OPTIONS.map(subj => {
-                            const isChecked = selectedSubjects.includes(subj);
-                            return (
-                                <label key={subj} className="checkbox-label" onClick={(e) => { e.preventDefault(); toggleSubject(subj); }}>
-                                    <div className={`custom-checkbox ${isChecked ? 'checked' : ''}`}>
-                                        {isChecked && <Check size={10} />}
-                                    </div>
-                                    <span>{subj}</span>
-                                </label>
-                            );
-                        })}
-                    </div>
+                <div className="dash-header-actions" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    <button className="btn-resume" onClick={() => setShowModal(true)} style={{ border: 'none', cursor: 'pointer' }}>
+                        <Plus size={18} /> Create New Tutor
+                    </button>
                 </div>
+            </div>
 
-                <div className="filter-group collapsible">
-                    <div className="filter-header">
-                        <h4>Personality</h4>
-                        <ChevronDown size={14} className="filter-chevron" />
-                    </div>
-                    <div className="filter-options">
-                        {PERSONALITY_OPTIONS.map(pers => {
-                            const isChecked = selectedPersonalities.includes(pers);
-                            return (
-                                <label key={pers} className="checkbox-label" onClick={(e) => { e.preventDefault(); togglePersonality(pers); }}>
-                                    <div className={`custom-checkbox ${isChecked ? 'checked' : ''}`}>
-                                        {isChecked && <Check size={10} />}
-                                    </div>
-                                    <span>{pers}</span>
-                                </label>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="filter-group collapsible">
-                    <div className="filter-header">
-                        <h4>Level</h4>
-                        <ChevronDown size={14} className="filter-chevron" />
-                    </div>
-                </div>
-
-                <div className="upgrade-card mt-auto">
-                    <p className="upgrade-title">Need a custom tutor?</p>
-                    <button className="upgrade-btn">Upgrade Plan</button>
-                </div>
-            </motion.aside>
-
-            {/* ── Main Tutors Content ──────────────────────────────── */}
-            <main className="tutors-main-content">
-
-                {/* Header Section */}
-                <motion.div
-                    className="tutors-header-section"
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.4, delay: 0.1 }}
-                >
-                    <div className="tutors-header-titles">
-                        <h1>My Tutors</h1>
-                        <p>Manage your AI learning companions and track progress.</p>
-                    </div>
-                    <div className="tutors-header-actions">
-                        <div className="search-bar">
-                            <Search size={16} className="search-icon" />
-                            <input
-                                type="text"
-                                placeholder="Search tutors..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
+            <div className="dash-split-layout">
+                {/* ── Main Tutors Content ──────────────────────────────── */}
+                <div className="dash-main-column">
+                    <div className="dash-section dash-mastery-section">
+                        <div className="dash-section-header">
+                            <h2>Your Active Companions</h2>
+                            <button onClick={clearFilters} className="dash-link-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>Clear Filters</button>
                         </div>
-                        <Link href="/tutors/create" className="primary-btn-new">
-                            <Plus size={16} /> Create New Tutor
-                        </Link>
+
+                        <div className="dash-mastery-grid" style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                            gap: '20px'
+                        }}>
+                            <AnimatePresence mode="popLayout">
+                                {filteredTutors.map(tutor => (
+                                    <motion.div
+                                        key={tutor.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="mastery-card group"
+                                        onClick={() => router.push(tutor.href)}
+                                        style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}
+                                    >
+                                        <div className="mastery-header">
+                                            <div className={`mastery-icon ${getSubjectColorClass(tutor.subjects[0])}`}>
+                                                {getSubjectIcon(tutor.subjects[0])}
+                                            </div>
+                                            <span style={{
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                padding: '4px 10px',
+                                                borderRadius: '20px',
+                                                backgroundColor: tutor.status === 'Active' ? '#d1fae5' : tutor.status === 'New' ? '#ffedd5' : '#f8fafc',
+                                                color: tutor.status === 'Active' ? '#059669' : tutor.status === 'New' ? '#ea580c' : '#64748b'
+                                            }}>
+                                                {tutor.status}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                                {tutor.avatar ? (
+                                                    <Image src={tutor.avatar} alt={tutor.name} width={40} height={40} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                                                ) : (
+                                                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#64748b' }}>{tutor.placeholder}</span>
+                                                )}
+                                            </div>
+                                            <h3 className="mastery-subject" style={{ margin: 0, fontSize: '18px' }}>{tutor.name}</h3>
+                                        </div>
+
+                                        <p style={{
+                                            fontSize: '14px',
+                                            color: 'var(--text-muted)',
+                                            lineHeight: '1.5',
+                                            marginBottom: '20px',
+                                            flex: 1
+                                        }}>
+                                            {tutor.desc}
+                                        </p>
+
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: 'auto' }}>
+                                            {tutor.tags.map((tag, idx) => (
+                                                <span key={idx} style={{
+                                                    background: 'var(--bg-main)',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '6px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--text-muted)'
+                                                }}>
+                                                    {tag.label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                ))}
+
+                                {filteredTutors.length === 0 && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '20px' }}
+                                    >
+                                        <Search size={32} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                                        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No tutors found</h3>
+                                        <p style={{ color: 'var(--text-muted)' }}>Try adjusting your filters or search query.</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
-                </motion.div>
+                </div>
 
-                {/* Active Filters */}
-                <AnimatePresence>
-                    {activeFilterCount > 0 && (
-                        <motion.div
-                            className="active-filters"
-                            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
-                            animate={{ height: "auto", opacity: 1, marginBottom: 32 }}
-                            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-                        >
-                            {selectedSubjects.map(subj => (
-                                <motion.span key={subj} className="filter-pill" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}>
-                                    {subj} <X size={12} className="remove-icon" onClick={() => toggleSubject(subj)} />
-                                </motion.span>
-                            ))}
-                            {selectedPersonalities.map(pers => (
-                                <motion.span key={pers} className="filter-pill" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}>
-                                    {pers} <X size={12} className="remove-icon" onClick={() => togglePersonality(pers)} />
-                                </motion.span>
-                            ))}
-                            <button className="clear-filters" onClick={clearFilters}>Clear all</button>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {/* ── Sidebar Column (Filters) ────────────────────── */}
+                <div className="dash-side-column">
+                    <div className="dash-sidebar-card">
+                        <div className="sidebar-card-header" style={{ marginBottom: '16px' }}>
+                            <h2 style={{ fontSize: '18px', fontWeight: 700 }}>Search & Filters</h2>
+                        </div>
 
-                {/* Tutors Grid */}
-                <motion.div
-                    className="tutors-grid-v2"
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                        hidden: {},
-                        visible: {
-                            transition: {
-                                staggerChildren: 0.1
-                            }
-                        }
-                    }}
-                >
-                    <AnimatePresence mode="popLayout">
-                        {filteredTutors.map(tutor => (
-                            <motion.div
-                                key={tutor.id}
-                                layout
-                                initial={{ scale: 0.9, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.9, opacity: 0 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            >
-                                <Link href={tutor.href} className="tutor-card-v2 group">
-                                    <div className="card-top">
-                                        <div className="avatar-small overflow-hidden ring-2 ring-transparent group-hover:ring-indigo-500 transition-all duration-300">
-                                            {tutor.avatar ? (
-                                                <Image src={tutor.avatar} alt={tutor.name} fill style={{ objectFit: 'cover' }} className="group-hover:scale-110 transition-transform duration-500" />
-                                            ) : (
-                                                <div className="placeholder-avatar group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900 transition-colors duration-300">{tutor.placeholder}</div>
-                                            )}
-                                        </div>
-                                        <div className="status-info">
-                                            <span className={`status-badge-mini ${tutor.status.toLowerCase()}`}>{tutor.status}</span>
-                                            <span className="status-time">{tutor.timeAgo}</span>
-                                        </div>
-                                    </div>
-                                    <div className="card-middle">
-                                        <h3 className="group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200">{tutor.name}</h3>
-                                        <p>{tutor.desc}</p>
-                                    </div>
-                                    <div className="card-bottom">
-                                        {tutor.tags.map((tag, idx) => (
-                                            <span key={idx} className={`tag-pill color-${tag.color}`}>{tag.label}</span>
-                                        ))}
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        ))}
-
-                        {/* Always show Create Card at the end */}
-                        <motion.div
-                            layout
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        >
-                            <Link href="/tutors/create" className="tutor-card-v2 create-card group">
-                                <div className="create-icon-wrapper group-hover:scale-110 group-hover:bg-indigo-600 transition-all duration-300">
-                                    <Plus size={24} className="create-plus group-hover:text-white" />
-                                </div>
-                                <h3 className="group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200">Create Tutor</h3>
-                                <p>Design a new AI companion tailored to your needs.</p>
-                            </Link>
-                        </motion.div>
-
-                    </AnimatePresence>
-
-                    {filteredTutors.length === 0 && (
-                        <motion.div
-                            className="col-span-full py-12 text-center text-slate-500 flex flex-col items-center gap-4"
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        >
-                            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400">
-                                <Search size={24} />
+                        <div style={{ marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-main)', borderRadius: '12px', padding: '12px 16px' }}>
+                                <Search size={16} color="var(--text-muted)" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px', color: 'var(--text-main)', fontWeight: 500 }}
+                                />
                             </div>
-                            <p className="text-lg font-medium">No tutors found matching your criteria.</p>
-                            <button onClick={clearFilters} className="text-indigo-600 hover:underline font-semibold text-sm">Clear all filters</button>
-                        </motion.div>
-                    )}
-                </motion.div>
-            </main>
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Subject</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {SUBJECT_OPTIONS.map(subj => (
+                                    <label key={subj} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: 'var(--text-main)' }}>
+                                        <div style={{
+                                            width: '20px', height: '20px', borderRadius: '6px',
+                                            border: `2px solid ${selectedSubjects.includes(subj) ? 'var(--primary)' : 'var(--border-color)'}`,
+                                            background: selectedSubjects.includes(subj) ? 'var(--primary)' : 'white',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            {selectedSubjects.includes(subj) && <Check size={12} color="white" strokeWidth={3} />}
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedSubjects.includes(subj)}
+                                            onChange={() => toggleSubject(subj)}
+                                            style={{ display: 'none' }}
+                                        />
+                                        {subj}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Personality</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {PERSONALITY_OPTIONS.map(pers => (
+                                    <label key={pers} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: 'var(--text-main)' }}>
+                                        <div style={{
+                                            width: '20px', height: '20px', borderRadius: '6px',
+                                            border: `2px solid ${selectedPersonalities.includes(pers) ? 'var(--primary)' : 'var(--border-color)'}`,
+                                            background: selectedPersonalities.includes(pers) ? 'var(--primary)' : 'white',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            {selectedPersonalities.includes(pers) && <Check size={12} color="white" strokeWidth={3} />}
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPersonalities.includes(pers)}
+                                            onChange={() => togglePersonality(pers)}
+                                            style={{ display: 'none' }}
+                                        />
+                                        {pers}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="dash-sidebar-card" style={{ background: 'linear-gradient(135deg, var(--bg-card) 0%, #f0efff 100%)', border: '1px solid var(--primary-light)' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Need a specific expert?</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.5' }}>
+                            You can create a fully custom AI tutor with specific knowledge bases, personalities, and teaching styles.
+                        </p>
+                        <button onClick={() => setShowModal(true)} style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                            Create Custom Tutor
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Create Modal Overlay ──────────────────────────────── */}
+            <AnimatePresence>
+                {showModal && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{
+                                position: 'fixed',
+                                top: 0, left: 0, right: 0, bottom: 0,
+                                background: 'rgba(15, 23, 42, 0.4)',
+                                backdropFilter: 'blur(8px)',
+                                zIndex: 1000
+                            }}
+                            onClick={() => setShowModal(false)}
+                        />
+                        <div style={{
+                            position: 'fixed',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1001,
+                            pointerEvents: 'none'
+                        }}>
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                style={{
+                                    background: 'var(--bg-card)',
+                                    borderRadius: '24px',
+                                    padding: '32px',
+                                    width: '100%',
+                                    maxWidth: '520px',
+                                    boxShadow: '0 24px 50px rgba(0,0,0,0.15)',
+                                    pointerEvents: 'auto',
+                                    border: '1px solid var(--border-color)'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+                                    <div>
+                                        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Create New Tutor</h2>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 500 }}>Configure a personalized learning companion.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowModal(false)}
+                                        style={{
+                                            background: 'var(--bg-main)', border: 'none', cursor: 'pointer',
+                                            color: 'var(--text-muted)', width: '36px', height: '36px',
+                                            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        className="hover:bg-[#e2e8f0]"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Name Your Tutor</label>
+                                        <input type="text" placeholder="e.g. Sir Isaac Newton" style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', color: 'var(--text-main)', fontWeight: 500 }} />
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Subject Expertise</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <select defaultValue="" style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', appearance: 'none', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer' }}>
+                                                    <option value="" disabled>Select subject</option>
+                                                    {SUBJECT_OPTIONS.map(opt => <option key={opt}>{opt}</option>)}
+                                                </select>
+                                                <ChevronDown size={16} color="var(--text-muted)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Personality Style</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <select defaultValue="" style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', appearance: 'none', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer' }}>
+                                                    <option value="" disabled>Select style</option>
+                                                    {PERSONALITY_OPTIONS.map(opt => <option key={opt}>{opt}</option>)}
+                                                </select>
+                                                <ChevronDown size={16} color="var(--text-muted)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>System Prompt (Optional)</label>
+                                        <textarea placeholder="Describe how this tutor should behave and any specific methodologies it should use..." rows={3} style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '14px', resize: 'none', background: 'var(--bg-main)', color: 'var(--text-main)', fontFamily: 'inherit', fontWeight: 500, lineHeight: '1.5' }} />
+                                    </div>
+
+                                    <div style={{ paddingTop: '8px', display: 'flex', gap: '12px' }}>
+                                        <button className="btn-resume cursor-pointer" style={{ flex: 1, justifyContent: 'center', border: 'none', padding: '14px' }} onClick={() => setShowModal(false)}>
+                                            Generate Tutor <Sparkles size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
-

@@ -1,7 +1,7 @@
 import { Play, GraduationCap, Star, ArrowLeft, ArrowRight, Lightbulb, Heart, Settings2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import "../tutors.css";
+import "../../dashboard.css";
 
 // This would typically fetch data based on the params.id
 const tutorData = {
@@ -28,7 +28,8 @@ const tutorData = {
     ]
 };
 
-export default function TutorProfilePage({ params }: { params: { id: string } }) {
+export default async function TutorProfilePage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = await params;
     return (
         <div className="dash-page tutor-profile-page">
             <div className="profile-top-nav">

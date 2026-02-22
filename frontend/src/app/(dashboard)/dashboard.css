@@ -472,134 +472,167 @@
     background: rgba(15, 23, 42, 0.1);
 }
 
-/* ── Tutors Page Layout ─────────────────────────────── */
-.tutor-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 32px;
+
+/* ── Enhanced Tutors Page Layout ────────────────────── */
+.tutor-enhanced-page {
+    position: relative;
+    z-index: 1;
 }
 
-.tutor-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
+.tutor-grid.enhanced {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 40px;
+    padding-bottom: 60px;
+}
+
+.tutor-card.enhanced {
+    background: rgba(17, 17, 24, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 32px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
-.tutor-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 40px var(--shadow-color);
+.light-mode .tutor-card.enhanced {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
 
-.tutor-img-wrapper {
+.tutor-card.enhanced:hover {
+    transform: translateY(-12px) scale(1.02);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.light-mode .tutor-card.enhanced:hover {
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.tutor-glow-bg {
+    position: absolute;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    z-index: 0;
+    transition: all 0.4s ease;
+}
+
+.tutor-card.enhanced.guide .tutor-glow-bg { background: #38bdf8; }
+.tutor-card.enhanced.professor .tutor-glow-bg { background: #a855f7; }
+.tutor-card.enhanced.buddy .tutor-glow-bg { background: #fcd34d; }
+
+.tutor-card.enhanced:hover .tutor-glow-bg {
+    opacity: 0.8;
+    transform: translateX(-50%) scale(1.2);
+}
+
+.tutor-card.enhanced .tutor-img-wrapper {
     width: 100%;
-    height: 320px;
+    height: 340px;
     position: relative;
-    background: var(--bg-hover);
+    z-index: 2;
+    transition: transform 0.4s ease;
 }
 
-.tutor-content {
-    padding: 24px;
+.tutor-card.enhanced:hover .tutor-img-wrapper {
+    transform: scale(1.08) translateY(-10px);
+}
+
+.tutor-card.enhanced .tutor-content {
+    padding: 32px;
     display: flex;
     flex-direction: column;
     flex: 1;
+    z-index: 2;
+    background: linear-gradient(to top, var(--bg-card) 60%, transparent);
 }
 
-.tutor-content h2 {
-    font-size: 24px;
+.tutor-card.enhanced h2 {
+    font-size: 28px;
     font-weight: 800;
     color: var(--fg-main);
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
 }
 
-.tutor-badge {
+.tutor-card.enhanced .tutor-badge {
     align-self: flex-start;
-    padding: 4px 10px;
+    padding: 6px 14px;
     border-radius: 100px;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 16px;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(8px);
 }
 
-.tutor-card.guide .tutor-badge {
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-}
+.tutor-card.enhanced.guide .tutor-badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+.tutor-card.enhanced.professor .tutor-badge { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
+.tutor-card.enhanced.buddy .tutor-badge { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
 
-.tutor-card.professor .tutor-badge {
-    background: rgba(168, 85, 247, 0.15);
-    color: #a855f7;
-}
+/* In light mode, badges need slightly darker colors or solid backgrounds */
+.light-mode .tutor-card.enhanced.buddy .tutor-badge { color: #d97706; border-color: rgba(217, 119, 6, 0.3); }
+.light-mode .tutor-card.enhanced.buddy .tutor-glow-bg { background: #fbbf24; opacity: 0.4; filter: blur(60px); }
 
-.tutor-card.buddy .tutor-badge {
-    background: rgba(244, 114, 182, 0.15);
-    color: #f472b6;
-}
-
-.tutor-content p {
-    font-size: 14px;
+.tutor-card.enhanced p {
+    font-size: 15px;
     color: var(--fg-muted);
     line-height: 1.6;
-    margin-bottom: 32px;
+    margin-bottom: 40px;
     flex: 1;
 }
 
-.tutor-select-btn {
+.tutor-card.enhanced .tutor-select-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
     width: 100%;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
+    padding: 16px;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 700;
     text-decoration: none;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+.tutor-card.enhanced .tutor-select-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.1);
+    z-index: -1;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+.tutor-card.enhanced:hover .tutor-select-btn::before {
+    transform: translateX(0);
 }
 
 /* Specific button styles */
-.tutor-card.guide .tutor-select-btn {
-    background: #0ea5e9;
-    color: white;
-}
+.tutor-card.enhanced.guide .tutor-select-btn { background: #0ea5e9; color: white; box-shadow: 0 8px 24px rgba(14, 165, 233, 0.3); }
+.tutor-card.enhanced.guide .tutor-select-btn:hover { background: #0284c7; box-shadow: 0 12px 32px rgba(14, 165, 233, 0.5); }
 
-.tutor-card.guide .tutor-select-btn:hover {
-    background: #0284c7;
-}
+.tutor-card.enhanced.professor .tutor-select-btn { background: #9333ea; color: white; box-shadow: 0 8px 24px rgba(147, 51, 234, 0.3); }
+.tutor-card.enhanced.professor .tutor-select-btn:hover { background: #7e22ce; box-shadow: 0 12px 32px rgba(147, 51, 234, 0.5); }
 
-.tutor-card.guide:hover {
-    border-color: #0ea5e9;
-}
-
-.tutor-card.professor .tutor-select-btn {
-    background: #9333ea;
-    color: white;
-}
-
-.tutor-card.professor .tutor-select-btn:hover {
-    background: #7e22ce;
-}
-
-.tutor-card.professor:hover {
-    border-color: #9333ea;
-}
-
-.tutor-card.buddy .tutor-select-btn {
-    background: #ec4899;
-    color: white;
-}
-
-.tutor-card.buddy .tutor-select-btn:hover {
-    background: #db2777;
-}
-
-.tutor-card.buddy:hover {
-    border-color: #ec4899;
-}
+.tutor-card.enhanced.buddy .tutor-select-btn { background: #f59e0b; color: white; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3); }
+.tutor-card.enhanced.buddy .tutor-select-btn:hover { background: #d97706; box-shadow: 0 12px 32px rgba(245, 158, 11, 0.5); }

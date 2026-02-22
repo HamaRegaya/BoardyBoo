@@ -1,21 +1,24 @@
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import "../dashboard.css";
 
 export default function TutorsPage() {
     return (
-        <div className="dash-page">
-            <div className="dash-header" style={{ marginBottom: '40px' }}>
-                <h1 className="dash-title">Choose Your Tutor</h1>
-                <p className="dash-subtitle">Select an AI persona that best fits your learning style.</p>
+        <div className="dash-page tutor-enhanced-page">
+            <div className="dash-header" style={{ marginBottom: '60px', textAlign: 'center' }}>
+                <h1 className="dash-title" style={{ fontSize: '42px', marginBottom: '16px' }}>Meet Your Tutors</h1>
+                <p className="dash-subtitle" style={{ fontSize: '18px', maxWidth: '600px', margin: '0 auto' }}>
+                    Select an AI persona that perfectly matches your learning style. Each tutor has a unique personality and teaching method.
+                </p>
             </div>
 
-            <div className="tutor-grid">
+            <div className="tutor-grid enhanced">
                 {/* The Guide */}
-                <div className="tutor-card guide">
+                <div className="tutor-card enhanced guide">
+                    <div className="tutor-glow-bg"></div>
                     <div className="tutor-img-wrapper">
-                        <Image src="/persona-guide.png" alt="The Guide Persona" fill style={{ objectFit: 'cover' }} />
+                        <Image src="/personas/owl.png" alt="The Guide Persona" fill style={{ objectFit: 'contain', padding: '20px' }} priority />
                     </div>
                     <div className="tutor-content">
                         <h2>The Guide</h2>
@@ -28,9 +31,10 @@ export default function TutorsPage() {
                 </div>
 
                 {/* The Professor */}
-                <div className="tutor-card professor">
+                <div className="tutor-card enhanced professor">
+                    <div className="tutor-glow-bg"></div>
                     <div className="tutor-img-wrapper">
-                        <Image src="/persona-strict.png" alt="The Professor Persona" fill style={{ objectFit: 'cover' }} />
+                        <Image src="/personas/star.png" alt="The Professor Persona" fill style={{ objectFit: 'contain', padding: '20px' }} priority />
                     </div>
                     <div className="tutor-content">
                         <h2>The Professor</h2>
@@ -43,9 +47,10 @@ export default function TutorsPage() {
                 </div>
 
                 {/* The Buddy */}
-                <div className="tutor-card buddy">
+                <div className="tutor-card enhanced buddy">
+                    <div className="tutor-glow-bg"></div>
                     <div className="tutor-img-wrapper">
-                        <Image src="/persona-buddy.png" alt="The Buddy Persona" fill style={{ objectFit: 'cover' }} />
+                        <Image src="/personas/orb.png" alt="The Buddy Persona" fill style={{ objectFit: 'contain', padding: '20px' }} priority />
                     </div>
                     <div className="tutor-content">
                         <h2>The Buddy</h2>

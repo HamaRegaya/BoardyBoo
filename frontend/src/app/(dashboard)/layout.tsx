@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: "Calendar", href: "/schedule", icon: CalendarDays },
         { name: "Tutors", href: "/tutors", icon: Users },
         { name: "Whiteboard", href: "/board", icon: PenTool },
-        { name: "Achievements", href: "/achievements", icon: Trophy },
+        { name: "Achievements", href: "/profile?tab=achievements", icon: Trophy },
     ];
 
     const isWizard = pathname === '/tutors/create';
@@ -97,7 +97,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {/* 2. Navigation Links */}
                     <nav className="topbar-nav">
                         {navItems.map((item) => {
-                            const isActive = pathname === item.href;
+                            const hrefPath = item.href.split("?")[0];
+                            const isActive = pathname === hrefPath || pathname === item.href;
                             const Icon = item.icon;
                             return (
                                 <Link

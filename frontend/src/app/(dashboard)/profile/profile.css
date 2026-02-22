@@ -22,9 +22,9 @@
 .prof-header-content {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: flex-end;
     padding: 0 32px;
-    margin-top: -40px;
+    margin-top: -50px;
     position: relative;
     z-index: 2;
 }
@@ -74,6 +74,7 @@
 
 .prof-identity {
     padding-bottom: 4px;
+    padding-top: 16px;
 }
 
 .prof-name {

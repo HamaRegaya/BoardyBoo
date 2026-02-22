@@ -11,7 +11,8 @@ import {
     Trophy,
     Settings,
     Sparkles,
-    Bell
+    Bell,
+    CalendarDays
 } from "lucide-react";
 import Image from "next/image";
 import "./dashboard.css";
@@ -27,7 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const navItems = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { name: "Courses", href: "/courses", icon: BookOpen },
+        { name: "Calendar", href: "/schedule", icon: CalendarDays },
         { name: "Tutors", href: "/tutors", icon: Users },
         { name: "Whiteboard", href: "/board", icon: PenTool },
         { name: "Achievements", href: "/achievements", icon: Trophy },

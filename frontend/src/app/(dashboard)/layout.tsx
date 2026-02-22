@@ -40,62 +40,66 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: "Settings", href: "/profile" },
     ];
 
+    const isWizard = pathname === '/tutors/create';
+
     return (
         <div className={`dash-app ${theme === 'light' ? 'light-mode' : ''}`}>
             {/* ── Top Navbar ──────────────────────────────────────────── */}
-            <header className="dash-topbar">
+            {!isWizard && (
+                <header className="dash-topbar">
 
-                {/* 1. Logo Zone */}
-                <div className="topbar-logo-zone">
-                    <Link href="/" className="dash-brand">
-                        <div className="dash-brand-icon"><PenTool size={16} /></div>
-                        <span className="dash-brand-name">Magic Whiteboard</span>
-                    </Link>
-                </div>
+                    {/* 1. Logo Zone */}
+                    <div className="topbar-logo-zone">
+                        <Link href="/" className="dash-brand">
+                            <div className="dash-brand-icon"><PenTool size={16} /></div>
+                            <span className="dash-brand-name">Magic Whiteboard</span>
+                        </Link>
+                    </div>
 
-                {/* 2. Center / Right Navigation Links */}
-                <nav className="topbar-nav">
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`topbar-nav-item ${isActive ? "active" : ""}`}
-                            >
-                                {item.name}
-                            </Link>
-                        );
-                    })}
-                </nav>
+                    {/* 2. Center / Right Navigation Links */}
+                    <nav className="topbar-nav">
+                        {navItems.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={`topbar-nav-item ${isActive ? "active" : ""}`}
+                                >
+                                    {item.name}
+                                </Link>
+                            );
+                        })}
+                    </nav>
 
-                {/* Vertical Divider */}
-                <div className="topbar-divider"></div>
+                    {/* Vertical Divider */}
+                    <div className="topbar-divider"></div>
 
-                {/* 3. Far Right Controls */}
-                <div className="topbar-controls">
-                    <button className="topbar-icon-btn" onClick={toggleTheme} title="Toggle Theme">
-                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
+                    {/* 3. Far Right Controls */}
+                    <div className="topbar-controls">
+                        <button className="topbar-icon-btn" onClick={toggleTheme} title="Toggle Theme">
+                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
 
-                    <button className="topbar-icon-btn" title="Notifications">
-                        <div className="notification-bell">
-                            <Bell size={18} />
-                            <span className="notification-dot"></span>
-                        </div>
-                    </button>
+                        <button className="topbar-icon-btn" title="Notifications">
+                            <div className="notification-bell">
+                                <Bell size={18} />
+                                <span className="notification-dot"></span>
+                            </div>
+                        </button>
 
-                    <button className="topbar-profile-btn" title="User Profile">
-                        <div className="topbar-avatar">
-                            {/* Assuming standard user avatar for mockup */}
-                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" />
-                        </div>
-                    </button>
-                </div>
-            </header>
+                        <button className="topbar-profile-btn" title="User Profile">
+                            <div className="topbar-avatar">
+                                {/* Assuming standard user avatar for mockup */}
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" />
+                            </div>
+                        </button>
+                    </div>
+                </header>
+            )}
 
             {/* ── Main Content Area ──────────────────────────────── */}
-            <main className={`dash-main ${pathname === '/tutors' ? 'no-padding' : ''}`}>
+            <main className={`dash-main ${pathname === '/tutors' || isWizard ? 'no-padding' : ''}`}>
                 {children}
             </main>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
     User,
     Mail,
@@ -97,11 +98,28 @@ const subjectColorMap: Record<string, { bg: string; text: string }> = {
    ═══════════════════════════════════════════════════════ */
 
 export default function ProfilePage() {
+    return (
+        <Suspense fallback={<div className="dash-page" style={{ padding: "40px 48px" }} />}>
+            <ProfileContent />
+        </Suspense>
+    );
+}
+
+function ProfileContent() {
+    const searchParams = useSearchParams();
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(USER.name);
     const [editBio, setEditBio] = useState(USER.bio);
     const [editEmail, setEditEmail] = useState(USER.email);
     const [activeTab, setActiveTab] = useState<"overview" | "achievements" | "settings">("overview");
+
+    // Read ?tab= query param on mount
+    useEffect(() => {
+        const tab = searchParams.get("tab");
+        if (tab === "settings" || tab === "achievements" || tab === "overview") {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     // Settings state
     const [darkMode, setDarkMode] = useState(false);

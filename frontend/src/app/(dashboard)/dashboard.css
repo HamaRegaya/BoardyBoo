@@ -1783,3 +1783,17 @@
 .lg-btn { padding: 16px; font-size: 16px; border-radius: 12px; }
 
 .preview-image-box.step1-style { width: 65%; margin: 40px auto; align-items: center; }
+@media (max-width: 600px) {
+    .tutors-header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .search-bar input {
+        width: 100%;
+    }
+    .primary-btn-new {
+        width: 100%;
+        justify-content: center;
+    }
+}

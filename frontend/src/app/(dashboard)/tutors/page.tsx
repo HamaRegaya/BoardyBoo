@@ -94,9 +94,9 @@ export default function TutorsPage() {
                             <Search size={16} className="search-icon" />
                             <input type="text" placeholder="Search tutors..." />
                         </div>
-                        <button className="primary-btn-new">
+                        <Link href="/tutors/create" className="primary-btn-new">
                             <Plus size={16} /> Create New Tutor
-                        </button>
+                        </Link>
                     </div>
                 </div>
 
@@ -217,13 +217,13 @@ export default function TutorsPage() {
                     </Link>
 
                     {/* Create New Card */}
-                    <div className="tutor-card-v2 create-card">
+                    <Link href="/tutors/create" className="tutor-card-v2 create-card">
                         <div className="create-icon-wrapper">
                             <Plus size={24} className="create-plus" />
                         </div>
                         <h3>Create Tutor</h3>
                         <p>Design a new AI companion tailored to your needs.</p>
-                    </div>
+                    </Link>
 
                 </div>
             </main>

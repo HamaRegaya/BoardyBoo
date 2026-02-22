@@ -1,7 +1,7 @@
 import { ArrowRight, Sparkles, Search, Plus, X, ChevronDown, Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import "../dashboard.css";
+import "./tutors.css";
 
 export default function TutorsPage() {
     return (

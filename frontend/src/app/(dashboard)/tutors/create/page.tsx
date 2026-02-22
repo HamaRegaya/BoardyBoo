@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, User, Mic, FileText, Check, ChevronRight, Paintbrush, BookOpen, Pen, Sparkles, Smile, GraduationCap, Shield, Hexagon, Beaker, Play, SlidersHorizontal, Settings, HelpCircle, PenTool } from "lucide-react";
-import "../../dashboard.css";
+import "../tutors.css";
 
 export default function CreateTutorWizard() {
     const [step, setStep] = useState(1);

@@ -1,7 +1,7 @@
 import { Play, GraduationCap, Star, ArrowLeft, ArrowRight, Lightbulb, Heart, Settings2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import "../../dashboard.css";
+import "../tutors.css";
 
 // This would typically fetch data based on the params.id
 const tutorData = {

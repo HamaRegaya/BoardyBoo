@@ -4,12 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-    Moon,
-    Sun,
+    LayoutDashboard,
+    BookOpen,
+    Users,
     PenTool,
-    Bell,
-    ChevronDown
+    Trophy,
+    Settings,
+    Sparkles,
+    Bell
 } from "lucide-react";
+import Image from "next/image";
 import "./dashboard.css";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,27 +21,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
     useEffect(() => {
-        // Default to light mode for the mockup, but respect saved preference
-        const savedTheme = localStorage.getItem('boardyboo-theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') {
-            setTheme(savedTheme as 'dark' | 'light');
-        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            setTheme('dark');
-        }
+        // Enforce light mode for the mockup aesthetic
+        setTheme('light');
     }, []);
 
-    const toggleTheme = () => {
-        const newTheme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-        localStorage.setItem('boardyboo-theme', newTheme);
-    };
-
     const navItems = [
-        { name: "Dashboard", href: "/dashboard" },
-        { name: "Library", href: "/library" },
-        { name: "Progress", href: "/courses" },
-        { name: "My Tutors", href: "/tutors" },
-        { name: "Settings", href: "/profile" },
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Courses", href: "/courses", icon: BookOpen },
+        { name: "Tutors", href: "/tutors", icon: Users },
+        { name: "Whiteboard", href: "/board", icon: PenTool },
+        { name: "Achievements", href: "/achievements", icon: Trophy },
     ];
 
     const isWizard = pathname === '/tutors/create';
@@ -47,59 +40,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* ── Top Navbar ──────────────────────────────────────────── */}
             {!isWizard && (
                 <header className="dash-topbar">
-
                     {/* 1. Logo Zone */}
                     <div className="topbar-logo-zone">
                         <Link href="/" className="dash-brand">
-                            <div className="dash-brand-icon"><PenTool size={16} /></div>
-                            <span className="dash-brand-name">Magic Whiteboard</span>
+                            <div className="dash-brand-icon">
+                                <Sparkles size={18} fill="currentColor" />
+                            </div>
+                            <div className="dash-brand-text">
+                                <span className="dash-brand-name">Magic Tutor</span>
+                                <span className="dash-brand-sub">Student Account</span>
+                            </div>
                         </Link>
                     </div>
 
-                    {/* 2. Center / Right Navigation Links */}
+                    {/* 2. Navigation Links */}
                     <nav className="topbar-nav">
                         {navItems.map((item) => {
                             const isActive = pathname === item.href;
+                            const Icon = item.icon;
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     className={`topbar-nav-item ${isActive ? "active" : ""}`}
                                 >
-                                    {item.name}
+                                    <Icon size={16} className="topbar-nav-icon" />
+                                    <span>{item.name}</span>
                                 </Link>
                             );
                         })}
                     </nav>
 
-                    {/* Vertical Divider */}
                     <div className="topbar-divider"></div>
 
-                    {/* 3. Far Right Controls */}
+                    {/* 3. Right Controls */}
                     <div className="topbar-controls">
-                        <button className="topbar-icon-btn" onClick={toggleTheme} title="Toggle Theme">
-                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        <Link href="/settings" className="topbar-icon-btn" title="Settings">
+                            <Settings size={20} />
+                        </Link>
+
+                        <button className="topbar-icon-btn notification-btn" title="Notifications">
+                            <Bell size={20} />
+                            <span className="notification-dot"></span>
                         </button>
 
-                        <button className="topbar-icon-btn" title="Notifications">
-                            <div className="notification-bell">
-                                <Bell size={18} />
-                                <span className="notification-dot"></span>
-                            </div>
-                        </button>
-
-                        <button className="topbar-profile-btn" title="User Profile">
+                        <div className="topbar-user-card">
                             <div className="topbar-avatar">
-                                {/* Assuming standard user avatar for mockup */}
-                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" />
+                                <img src="https://i.pravatar.cc/150?u=a042581f4e29026704z" alt="User" width={36} height={36} />
                             </div>
-                        </button>
+                            <div className="topbar-user-info">
+                                <span className="user-name">Alex Johnson</span>
+                                <span className="user-grade">Grade 10</span>
+                            </div>
+                        </div>
                     </div>
                 </header>
             )}
 
             {/* ── Main Content Area ──────────────────────────────── */}
-            <main className={`dash-main ${pathname === '/tutors' || isWizard ? 'no-padding' : ''}`}>
+            <main className={`dash-main ${pathname === '/tutors' || isWizard ? 'no-padding' : ''} ${isWizard ? 'wizard-mode' : ''}`}>
                 {children}
             </main>
         </div>

@@ -75,6 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ];
 
     const isWizard = pathname === '/tutors/create';
+    const isBoard = pathname === '/board';
 
     return (
         <div className={`dash-app ${theme === 'light' ? 'light-mode' : ''}`}>
@@ -200,7 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* ── Main Content Area ──────────────────────────────── */}
-            <main className={`dash-main ${pathname === '/tutors' || isWizard ? 'no-padding' : ''} ${isWizard ? 'wizard-mode' : ''}`}>
+            <main className={`dash-main ${pathname === '/tutors' || isWizard || isBoard ? 'no-padding' : ''} ${isWizard ? 'wizard-mode' : ''}`}>
                 {children}
             </main>
         </div>

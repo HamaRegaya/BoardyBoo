@@ -4,29 +4,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-    LayoutDashboard,
-    Library,
-    GraduationCap,
-    Users,
-    Settings,
-    Plus,
     Moon,
     Sun,
-    PenTool
+    PenTool,
+    Bell,
+    ChevronDown
 } from "lucide-react";
 import "./dashboard.css";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+    const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
     useEffect(() => {
-        // Check local storage or system preference on mount
+        // Default to light mode for the mockup, but respect saved preference
         const savedTheme = localStorage.getItem('boardyboo-theme');
         if (savedTheme === 'light' || savedTheme === 'dark') {
             setTheme(savedTheme as 'dark' | 'light');
-        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-            setTheme('light');
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            setTheme('dark');
         }
     }, []);
 
@@ -37,57 +33,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     const navItems = [
-        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { name: "Library", href: "/library", icon: Library },
-        { name: "Courses", href: "/courses", icon: GraduationCap },
-        { name: "Tutors", href: "/tutors", icon: Users },
+        { name: "Dashboard", href: "/dashboard" },
+        { name: "Library", href: "/library" },
+        { name: "Progress", href: "/courses" }, // Mockup uses "Progress"
+        { name: "Settings", href: "/profile" },
     ];
 
     return (
         <div className={`dash-app ${theme === 'light' ? 'light-mode' : ''}`}>
-            {/* ── Sidebar ──────────────────────────────────────────── */}
-            <aside className="dash-sidebar">
-                <div className="dash-sidebar-header">
+            {/* ── Top Navbar ──────────────────────────────────────────── */}
+            <header className="dash-topbar">
+
+                {/* 1. Logo Zone */}
+                <div className="topbar-logo-zone">
                     <Link href="/" className="dash-brand">
                         <div className="dash-brand-icon"><PenTool size={16} /></div>
-                        <span className="dash-brand-name">BoardyBoo</span>
+                        <span className="dash-brand-name">Magic Whiteboard</span>
                     </Link>
                 </div>
 
-                <div className="dash-sidebar-content">
-                    <div className="dash-nav">
-                        <div className="dash-nav-label">MENU</div>
-                        {navItems.map((item) => {
-                            const isActive = pathname === item.href;
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={`dash-nav-item ${isActive ? "active" : ""}`}
-                                >
-                                    <item.icon size={18} />
-                                    <span>{item.name}</span>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                </div>
+                {/* 2. Center / Right Navigation Links */}
+                <nav className="topbar-nav">
+                    {navItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`topbar-nav-item ${isActive ? "active" : ""}`}
+                            >
+                                {item.name}
+                            </Link>
+                        );
+                    })}
+                </nav>
 
-                <div className="dash-sidebar-footer">
-                    <Link href="/board" className="dash-new-session-btn">
-                        <Plus size={16} /> New Session
-                    </Link>
+                {/* Vertical Divider */}
+                <div className="topbar-divider"></div>
 
-                    <div className="dash-footer-links">
-                        <Link href="/profile" className="dash-icon-btn" title="Settings">
-                            <Settings size={18} />
-                        </Link>
-                        <button className="dash-icon-btn" onClick={toggleTheme} title="Toggle Theme">
-                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
-                    </div>
+                {/* 3. Far Right Controls */}
+                <div className="topbar-controls">
+                    <button className="topbar-icon-btn" onClick={toggleTheme} title="Toggle Theme">
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
+
+                    <button className="topbar-icon-btn" title="Notifications">
+                        <div className="notification-bell">
+                            <Bell size={18} />
+                            <span className="notification-dot"></span>
+                        </div>
+                    </button>
+
+                    <button className="topbar-profile-btn" title="User Profile">
+                        <div className="topbar-avatar">
+                            {/* Assuming standard user avatar for mockup */}
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" />
+                        </div>
+                    </button>
                 </div>
-            </aside>
+            </header>
 
             {/* ── Main Content Area ──────────────────────────────── */}
             <main className="dash-main">

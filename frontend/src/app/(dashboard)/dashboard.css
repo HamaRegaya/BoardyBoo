@@ -42,176 +42,175 @@
     --shadow-color: rgba(15, 23, 42, 0.12);
 }
 
-/* ── Sidebar ──────────────────────────────────────────── */
-.dash-sidebar {
-    width: 260px;
-    height: 100%;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-color);
+
+/* ── Global Layout (Phase 10 Top Navbar) ────────── */
+.dash-app {
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
-    z-index: 50;
-    transition: background 0.3s, border-color 0.3s;
+    height: 100vh;
+    background: var(--bg-main);
+    color: var(--fg-main);
+    overflow: hidden; /* Prevent body scroll, handle scroll in main */
 }
 
-.dash-sidebar-header {
-    height: 68px;
+/* ── Top Navbar ── */
+.dash-topbar {
+    width: 100%;
+    height: 80px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    padding: 0 24px;
-    border-bottom: 1px solid transparent;
+    padding: 0 32px;
+    z-index: 10;
+    flex-shrink: 0;
+}
+
+/* 1. Left Logo Zone */
+.topbar-logo-zone {
+    display: flex;
+    align-items: center;
+    width: 240px; /* Aligns with inner sidebar width roughly */
 }
 
 .dash-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     text-decoration: none;
+    color: var(--fg-main);
 }
 
 .dash-brand-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, var(--primary), #7209b7);
+    width: 32px;
+    height: 32px;
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
 }
 
 .dash-brand-name {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 800;
-    color: var(--fg-main);
-    letter-spacing: -0.4px;
+    letter-spacing: -0.5px;
 }
 
-.dash-sidebar-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-}
-
-/* Scrollbar styling for sidebar */
-.dash-sidebar-content::-webkit-scrollbar {
-    width: 4px;
-}
-
-.dash-sidebar-content::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
-}
-
-/* Navigation items */
-.dash-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.dash-nav-label {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--fg-muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 0 12px;
-    margin-bottom: 8px;
-}
-
-.dash-nav-item {
+/* 2. Center Nav Links */
+.topbar-nav {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    color: var(--fg-muted);
-    text-decoration: none;
+    gap: 32px;
+    margin-left: auto; /* Push to right */
+    margin-right: 32px;
+}
+
+.topbar-nav-item {
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.dash-nav-item:hover {
-    background: var(--bg-hover);
-    color: var(--fg-main);
-}
-
-.dash-nav-item.active {
-    background: rgba(67, 97, 238, 0.1);
-    color: var(--primary);
-    font-weight: 600;
-}
-
-/* ── Sidebar Footer ───────────────────────────────────── */
-.dash-sidebar-footer {
-    padding: 20px 16px;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.dash-new-session-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 12px;
-    background: var(--fg-main);
-    color: var(--bg-main);
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: transform 0.2s, opacity 0.2s;
-}
-
-.dash-new-session-btn:hover {
-    transform: translateY(-1px);
-    opacity: 0.9;
-}
-
-.dash-footer-links {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 8px;
-}
-
-.dash-icon-btn {
-    background: transparent;
-    border: none;
-    padding: 6px;
     color: var(--fg-muted);
-    cursor: pointer;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 8px;
     transition: all 0.2s;
 }
 
-.dash-icon-btn:hover {
+.topbar-nav-item:hover {
+    color: var(--fg-main);
     background: var(--bg-hover);
+}
+
+.topbar-nav-item.active {
+    color: var(--primary);
+    background: rgba(67, 97, 238, 0.1);
+    font-weight: 600;
+}
+
+/* Divider */
+.topbar-divider {
+    width: 1px;
+    height: 32px;
+    background: var(--border-color);
+    margin-right: 32px;
+}
+
+/* 3. Far Right Controls */
+.topbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.topbar-icon-btn {
+    background: none;
+    border: none;
+    color: var(--fg-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.topbar-icon-btn:hover {
     color: var(--fg-main);
 }
 
-/* ── Main Content ─────────────────────────────────────── */
+.notification-bell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #ef4444; /* Red dot */
+    border-radius: 50%;
+    border: 2px solid var(--bg-card);
+}
+
+.topbar-profile-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.topbar-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #FFD166; /* Match avatar bg */
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.topbar-profile-btn:hover .topbar-avatar {
+    border-color: var(--primary);
+}
+
+.topbar-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ── Main content area ── */
 .dash-main {
     flex: 1;
+    width: 100%; /* Take full width now */
+    padding: 32px 40px;
     overflow-y: auto;
-    position: relative;
-    padding: 40px;
 }
+
 
 /* Topbar for internal pages (placeholder styling) */
 .dash-header {

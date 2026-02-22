@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from google.adk.agents import Agent
-from google.adk.tools.mcp_tool import MCPToolset, SseConnectionParams
+from app.tools.media_tools import MediaTools
 
 from app.config import settings
 
@@ -42,27 +42,8 @@ When media generation is complete, transfer back to the tutor agent.
 
 
 def build_media_agent() -> Agent:
-    """Build the media agent with MCP genmedia toolset.
-
-    The MCP tools connect to the genmedia SSE server at startup.
-    If the server URL is not configured the agent is still created
-    but without MCP tools (it can report the error gracefully).
-    """
-    tools = []
-    mcp_server_url = settings.genmedia_mcp_server_url
-
-    if mcp_server_url:
-        try:
-            toolset = MCPToolset(
-                connection_params=SseConnectionParams(
-                    url=f"{mcp_server_url}/sse",
-                ),
-            )
-            tools.append(toolset)
-            logger.info("MCP GenMedia toolset configured: %s", mcp_server_url)
-        except Exception as exc:
-            logger.warning("Failed to configure MCP GenMedia: %s", exc)
-
+    """Build the media agent with Nano Babana Pro (media_tools)."""
+    tools = [MediaTools()]
     return Agent(
         name="media_agent",
         model=settings.media_agent_model,

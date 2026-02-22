@@ -1,277 +1,801 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Sparkles, Filter, MoreHorizontal, Clock, ArrowRight } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+    Calendar as CalendarIcon,
+    ChevronLeft,
+    ChevronRight,
+    Plus,
+    Sparkles,
+    Filter,
+    MoreHorizontal,
+    Clock,
+    ArrowRight,
+    X,
+    Trash2,
+    Play,
+    User,
+    BookOpen,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import "../dashboard.css"; // Reuse dashboard base styles
+import "../dashboard.css";
 
-// --- Mock Data ---
+/* ─── Types ──────────────────────────────────────────────── */
+
+type SubjectClass = "math" | "science" | "history" | "languages";
+
 type Session = {
     id: string;
     title: string;
     tutor: string;
     avatar: string;
     day: number; // 0-6 (Sun-Sat)
-    startTime: number; // 0-23 (Hour)
-    duration: number; // in hours
+    startTime: number; // 0-23
+    duration: number; // hours
     type: "manual" | "ai-suggested";
-    subjectClass: "math" | "science" | "history" | "languages";
+    subjectClass: SubjectClass;
+    description?: string;
 };
 
-const WEEK_SESSIONS: Session[] = [
-    { id: "1", title: "Calculus Limits", tutor: "Prof. Algebra", avatar: "/personas/owl.png", day: 1, startTime: 10, duration: 2, type: "manual", subjectClass: "math" },
-    { id: "2", title: "Kinematics Review", tutor: "Dr. Physics", avatar: "/personas/orb.png", day: 2, startTime: 14, duration: 1.5, type: "manual", subjectClass: "science" },
-    { id: "3", title: "French Conversation", tutor: "Madame Lingua", avatar: "/personas/star.png", day: 3, startTime: 16, duration: 1, type: "ai-suggested", subjectClass: "languages" },
-    { id: "4", title: "WW2 Causes", tutor: "Ms. History", avatar: "/personas/owl.png", day: 4, startTime: 11, duration: 1.5, type: "manual", subjectClass: "history" },
-    { id: "5", title: "JavaScript Promises", tutor: "Code Bot", avatar: "/personas/orb.png", day: 5, startTime: 15, duration: 2, type: "ai-suggested", subjectClass: "science" },
+type Suggestion = {
+    id: string;
+    title: string;
+    tutor: string;
+    avatar: string;
+    duration: string;
+    durationHours: number;
+    reason: string;
+    subject: SubjectClass;
+};
+
+/* ─── Constants ──────────────────────────────────────────── */
+
+const INITIAL_SESSIONS: Session[] = [
+    { id: "1", title: "Calculus Limits", tutor: "Prof. Algebra", avatar: "/personas/owl.png", day: 1, startTime: 10, duration: 2, type: "manual", subjectClass: "math", description: "Deep-dive into epsilon-delta proofs and L'Hôpital's rule." },
+    { id: "2", title: "Kinematics Review", tutor: "Dr. Physics", avatar: "/personas/orb.png", day: 2, startTime: 14, duration: 1.5, type: "manual", subjectClass: "science", description: "Reviewing projectile motion and free-fall kinematics." },
+    { id: "3", title: "French Conversation", tutor: "Madame Lingua", avatar: "/personas/star.png", day: 3, startTime: 16, duration: 1, type: "ai-suggested", subjectClass: "languages", description: "AI-suggested conversational practice for upcoming oral exam." },
+    { id: "4", title: "WW2 Causes", tutor: "Ms. History", avatar: "/personas/owl.png", day: 4, startTime: 11, duration: 1.5, type: "manual", subjectClass: "history", description: "Treaty of Versailles and the rise of fascism." },
+    { id: "5", title: "JavaScript Promises", tutor: "Code Bot", avatar: "/personas/orb.png", day: 5, startTime: 15, duration: 2, type: "ai-suggested", subjectClass: "science", description: "Async fundamentals — promises, async/await, and error handling." },
 ];
 
-const SUGGESTIONS = [
-    { id: "s1", title: "Derivatives Practice", tutor: "Prof. Algebra", duration: "45 min", reason: "Based on recent struggles with chain rule", subject: "math" },
-    { id: "s2", title: "Newton's 3rd Law", tutor: "Dr. Physics", duration: "1 hour", reason: "Preparation for upcoming midterm", subject: "science" }
+const INITIAL_SUGGESTIONS: Suggestion[] = [
+    { id: "s1", title: "Derivatives Practice", tutor: "Prof. Algebra", avatar: "/personas/owl.png", duration: "45 min", durationHours: 0.75, reason: "Based on recent struggles with chain rule", subject: "math" },
+    { id: "s2", title: "Newton's 3rd Law", tutor: "Dr. Physics", avatar: "/personas/orb.png", duration: "1 hour", durationHours: 1, reason: "Preparation for upcoming midterm", subject: "science" },
 ];
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 8 AM to 6 PM
+const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 7); // 7 AM to 7 PM
+
+const SUBJECT_OPTIONS: { value: SubjectClass | "all"; label: string; color: string }[] = [
+    { value: "all", label: "All Subjects", color: "#64748b" },
+    { value: "math", label: "Mathematics", color: "#4f46e5" },
+    { value: "science", label: "Science", color: "#10b981" },
+    { value: "history", label: "History", color: "#f97316" },
+    { value: "languages", label: "Languages", color: "#a855f7" },
+];
+
+const TUTOR_OPTIONS = [
+    { value: "Prof. Algebra", avatar: "/personas/owl.png" },
+    { value: "Dr. Physics", avatar: "/personas/orb.png" },
+    { value: "Ms. History", avatar: "/personas/owl.png" },
+    { value: "Madame Lingua", avatar: "/personas/star.png" },
+    { value: "Code Bot", avatar: "/personas/orb.png" },
+];
+
+/* ─── Helpers ────────────────────────────────────────────── */
+
+function getMonday(d: Date): Date {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+}
+
+function addDays(d: Date, n: number): Date {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    return r;
+}
+
+function formatHour(h: number): string {
+    if (h === 0) return "12 AM";
+    if (h < 12) return `${h} AM`;
+    if (h === 12) return "12 PM";
+    return `${h - 12} PM`;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+let nextId = 100;
+function genId() {
+    return `sess-${nextId++}`;
+}
+
+const subjectColors: Record<string, { bg: string; border: string; text: string }> = {
+    math: { bg: "#e0e7ff", border: "#4f46e5", text: "#4338ca" },
+    science: { bg: "#d1fae5", border: "#10b981", text: "#047857" },
+    history: { bg: "#ffedd5", border: "#f97316", text: "#c2410c" },
+    languages: { bg: "#f3e8ff", border: "#a855f7", text: "#7e22ce" },
+};
+
+function getSubjectColorStyles(subject: string, isAI: boolean) {
+    const c = subjectColors[subject] ?? { bg: "#f1f5f9", border: "#64748b", text: "#334155" };
+    if (isAI) {
+        return {
+            background: `repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.5) 5px, rgba(255,255,255,0.5) 10px), ${c.bg}`,
+            border: `2px dashed ${c.border}`,
+            color: c.text,
+        };
+    }
+    return {
+        background: c.bg,
+        border: `1px solid ${c.bg}`,
+        borderLeft: `4px solid ${c.border}`,
+        color: c.text,
+    };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPONENT
+   ═══════════════════════════════════════════════════════════ */
 
 export default function SchedulePage() {
+    // ── Core state ─────────────────────────────────────────
+    const today = useMemo(() => new Date(), []);
+    const [weekStart, setWeekStart] = useState(() => getMonday(today));
     const [viewMode, setViewMode] = useState<"week" | "month">("week");
     const [showAISuggestions, setShowAISuggestions] = useState(true);
+    const [subjectFilter, setSubjectFilter] = useState<SubjectClass | "all">("all");
+    const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
-    // Helpers for grid positioning
-    const getSubjectColorStyles = (subject: string, isAI: boolean) => {
-        let baseBg, borderColor, textColor;
-        switch (subject) {
-            case "math": baseBg = "#e0e7ff"; borderColor = "#4f46e5"; textColor = "#4338ca"; break;
-            case "science": baseBg = "#d1fae5"; borderColor = "#10b981"; textColor = "#047857"; break;
-            case "history": baseBg = "#ffedd5"; borderColor = "#f97316"; textColor = "#c2410c"; break;
-            case "languages": baseBg = "#f3e8ff"; borderColor = "#a855f7"; textColor = "#7e22ce"; break;
-            default: baseBg = "#f1f5f9"; borderColor = "#64748b"; textColor = "#334155"; break;
-        }
+    // Sessions & suggestions live in state so we can add/remove
+    const [sessions, setSessions] = useState<Session[]>(INITIAL_SESSIONS);
+    const [suggestions, setSuggestions] = useState<Suggestion[]>(INITIAL_SUGGESTIONS);
 
-        if (isAI) {
-            return {
-                background: `repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.5) 5px, rgba(255,255,255,0.5) 10px), ${baseBg}`,
-                border: `2px dashed ${borderColor}`,
-                color: textColor,
-            };
+    // UI overlays
+    const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+    const [showBookingModal, setShowBookingModal] = useState(false);
+
+    // Booking form state
+    const [bookTitle, setBookTitle] = useState("");
+    const [bookSubject, setBookSubject] = useState<SubjectClass>("math");
+    const [bookTutor, setBookTutor] = useState(TUTOR_OPTIONS[0].value);
+    const [bookDay, setBookDay] = useState(1);
+    const [bookHour, setBookHour] = useState(10);
+    const [bookDuration, setBookDuration] = useState(1);
+    const [bookDesc, setBookDesc] = useState("");
+
+    // Current time for live indicator
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 60_000);
+        return () => clearInterval(t);
+    }, []);
+
+    // Compute week dates array
+    const weekDates = useMemo(() => DAYS.map((_, i) => addDays(weekStart, i)), [weekStart]);
+
+    // ── Navigation ─────────────────────────────────────────
+    const goToPrevWeek = () => setWeekStart(prev => addDays(prev, -7));
+    const goToNextWeek = () => setWeekStart(prev => addDays(prev, 7));
+    const goToToday = () => setWeekStart(getMonday(today));
+
+    // ── Month label ────────────────────────────────────────
+    const monthLabel = useMemo(() => {
+        const first = weekDates[0];
+        const last = weekDates[6];
+        if (first.getMonth() === last.getMonth()) {
+            return `${MONTHS[first.getMonth()]} ${first.getFullYear()}`;
         }
-        return {
-            background: baseBg,
-            border: `1px solid ${baseBg}`,
-            borderLeft: `4px solid ${borderColor}`,
-            color: textColor,
-        };
+        return `${MONTHS[first.getMonth()]} – ${MONTHS[last.getMonth()]} ${first.getFullYear()}`;
+    }, [weekDates]);
+
+    // ── Filtered sessions ──────────────────────────────────
+    const filteredSessions = useMemo(() => {
+        let list = sessions;
+        if (!showAISuggestions) list = list.filter(s => s.type !== "ai-suggested");
+        if (subjectFilter !== "all") list = list.filter(s => s.subjectClass === subjectFilter);
+        return list;
+    }, [sessions, showAISuggestions, subjectFilter]);
+
+    // ── Session CRUD ───────────────────────────────────────
+    const addSession = useCallback((s: Omit<Session, "id">) => {
+        setSessions(prev => [...prev, { ...s, id: genId() }]);
+    }, []);
+
+    const deleteSession = useCallback((id: string) => {
+        setSessions(prev => prev.filter(s => s.id !== id));
+        setSelectedSession(null);
+    }, []);
+
+    const addSuggestionToSchedule = useCallback((sug: Suggestion) => {
+        const freeDays = [1, 2, 3, 4, 5].filter(d => !sessions.some(s => s.day === d && s.startTime === 10));
+        const chosenDay = freeDays.length > 0 ? freeDays[0] : 1;
+        addSession({
+            title: sug.title,
+            tutor: sug.tutor,
+            avatar: sug.avatar,
+            day: chosenDay,
+            startTime: 10,
+            duration: sug.durationHours,
+            type: "ai-suggested",
+            subjectClass: sug.subject,
+            description: sug.reason,
+        });
+        setSuggestions(prev => prev.filter(s => s.id !== sug.id));
+    }, [sessions, addSession]);
+
+    // ── Booking modal helpers ──────────────────────────────
+    const openBookingFromSlot = (day: number, hour: number) => {
+        setBookDay(day);
+        setBookHour(hour);
+        setBookTitle("");
+        setBookSubject("math");
+        setBookTutor(TUTOR_OPTIONS[0].value);
+        setBookDuration(1);
+        setBookDesc("");
+        setShowBookingModal(true);
     };
 
+    const openBookingFresh = () => {
+        setBookDay(1);
+        setBookHour(10);
+        setBookTitle("");
+        setBookSubject("math");
+        setBookTutor(TUTOR_OPTIONS[0].value);
+        setBookDuration(1);
+        setBookDesc("");
+        setShowBookingModal(true);
+    };
+
+    const submitBooking = () => {
+        if (!bookTitle.trim()) return;
+        const tutorInfo = TUTOR_OPTIONS.find(t => t.value === bookTutor) ?? TUTOR_OPTIONS[0];
+        addSession({
+            title: bookTitle,
+            tutor: bookTutor,
+            avatar: tutorInfo.avatar,
+            day: bookDay,
+            startTime: bookHour,
+            duration: bookDuration,
+            type: "manual",
+            subjectClass: bookSubject,
+            description: bookDesc,
+        });
+        setShowBookingModal(false);
+    };
+
+    // ── Current time position ──────────────────────────────
+    const currentTimeTop = useMemo(() => {
+        const h = now.getHours() + now.getMinutes() / 60;
+        return ((h - 7) / HOURS.length) * 100;
+    }, [now]);
+
+    const isCurrentWeek = useMemo(() => {
+        return weekDates.some(d => isSameDay(d, today));
+    }, [weekDates, today]);
+
+    /* ═══ RENDER ═══════════════════════════════════════════ */
     return (
-        <div className="dash-page" style={{ padding: '40px 48px' }}>
+        <div className="dash-page" style={{ padding: "40px 48px" }}>
+            {/* ── Header ──────────────────────────────────────── */}
             <div className="dash-header-area">
                 <div className="dash-header-text">
                     <h1 className="dash-title">
                         My Schedule <CalendarIcon className="text-indigo-600 ml-2" size={32} />
                     </h1>
-                    <p className="dash-subtitle" style={{ marginTop: '6px' }}>
+                    <p className="dash-subtitle" style={{ marginTop: "6px" }}>
                         Plan your learning journey with AI-optimized session slots.
                     </p>
                 </div>
-                <div className="dash-header-actions" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                    <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '4px', display: 'flex' }}>
-                        <button
-                            onClick={() => setViewMode("week")}
-                            style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: viewMode === "week" ? 'white' : 'transparent', color: viewMode === "week" ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 600, fontSize: '13px', boxShadow: viewMode === "week" ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', cursor: 'pointer', transition: 'all 0.2s' }}
-                        >
-                            Week
-                        </button>
-                        <button
-                            onClick={() => setViewMode("month")}
-                            style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: viewMode === "month" ? 'white' : 'transparent', color: viewMode === "month" ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 600, fontSize: '13px', boxShadow: viewMode === "month" ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', cursor: 'pointer', transition: 'all 0.2s' }}
-                        >
-                            Month
-                        </button>
+                <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                    <div className="sched-view-toggle">
+                        <button className={`sched-toggle-btn ${viewMode === "week" ? "active" : ""}`} onClick={() => setViewMode("week")}>Week</button>
+                        <button className={`sched-toggle-btn ${viewMode === "month" ? "active" : ""}`} onClick={() => setViewMode("month")}>Month</button>
                     </div>
-                    <button className="btn-resume" style={{ border: 'none', cursor: 'pointer' }}>
+                    <button className="btn-resume" style={{ border: "none", cursor: "pointer" }} onClick={openBookingFresh}>
                         <Plus size={18} /> Book Session
                     </button>
                 </div>
             </div>
 
-            <div className="dash-split-layout" style={{ gridTemplateColumns: '1fr 340px' }}>
+            {/* ── Main Grid ───────────────────────────────────── */}
+            <div className="dash-split-layout" style={{ gridTemplateColumns: "1fr 340px" }}>
 
-                {/* ── Main Calendar Column ──────────────────────────────── */}
+                {/* ━━ Calendar Column ━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
                 <div className="dash-main-column">
-                    <div className="dash-sidebar-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', minHeight: '700px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>October 2026</h2>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    <button style={{ background: 'var(--bg-main)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><ChevronLeft size={16} /></button>
-                                    <button style={{ background: 'var(--bg-main)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><ChevronRight size={16} /></button>
+                    <div className="sched-calendar-card">
+                        <div className="sched-toolbar">
+                            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                                <h2 className="sched-month-label">{monthLabel}</h2>
+                                <div style={{ display: "flex", gap: "4px" }}>
+                                    <button className="sched-nav-btn" onClick={goToPrevWeek}><ChevronLeft size={16} /></button>
+                                    <button className="sched-nav-btn" onClick={goToNextWeek}><ChevronRight size={16} /></button>
                                 </div>
+                                <button className="sched-today-btn" onClick={goToToday}>Today</button>
                             </div>
-                            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px solid var(--border-color)', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
-                                <Filter size={14} /> Filter
-                            </button>
-                        </div>
-
-                        {/* Calendar Grid Container */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
-                            {/* Days Header */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(7, 1fr)', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-main)' }}>
-                                <div /> {/* Empty top-left corner */}
-                                {DAYS.map((day, idx) => (
-                                    <div key={day} style={{ padding: '12px', textAlign: 'center', borderLeft: '1px solid var(--border-color)' }}>
-                                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
-                                        <div style={{ fontSize: '18px', fontWeight: 700, color: idx === 1 ? 'var(--primary)' : 'var(--text-main)', marginTop: '4px', width: '32px', height: '32px', borderRadius: '50%', background: idx === 1 ? 'var(--primary-light)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '4px auto 0' }}>
-                                            {11 + idx} {/* Dummy dates */}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Time Grid */}
-                            <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
-                                {/* Background grid lines */}
-                                {HOURS.map(hour => (
-                                    <div key={hour} style={{ display: 'grid', gridTemplateColumns: '60px 1fr', height: '80px' }}>
-                                        <div style={{ padding: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'right', borderBottom: '1px solid transparent', transform: 'translateY(-10px)' }}>
-                                            {hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
-                                        </div>
-                                        <div style={{ borderBottom: '1px solid var(--border-color)', borderLeft: '1px solid var(--border-color)', position: 'relative' }}>
-                                            {/* Sub-grid lines for columns */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', height: '100%' }}>
-                                                {DAYS.map((_, i) => <div key={i} style={{ borderRight: i < 6 ? '1px dashed var(--border-color)' : 'none', opacity: 0.5 }} />)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Absolute positioned sessions */}
-                                {WEEK_SESSIONS.filter(s => showAISuggestions || s.type !== 'ai-suggested').map(session => {
-                                    const topPercent = ((session.startTime - 8) / HOURS.length) * 100;
-                                    const heightPercent = (session.duration / HOURS.length) * 100;
-                                    const leftPercent = (session.day / 7) * 100;
-                                    const widthPercent = 100 / 7;
-
-                                    return (
+                            <div style={{ position: "relative" }}>
+                                <button className="sched-filter-btn" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+                                    <Filter size={14} />
+                                    {subjectFilter !== "all" ? SUBJECT_OPTIONS.find(o => o.value === subjectFilter)?.label : "Filter"}
+                                </button>
+                                <AnimatePresence>
+                                    {showFilterDropdown && (
                                         <motion.div
-                                            key={session.id}
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            style={{
-                                                position: 'absolute',
-                                                top: `${topPercent}%`,
-                                                left: `calc(60px + ${leftPercent}%)`,
-                                                width: `calc(${widthPercent}% - 8px)`,
-                                                height: `calc(${heightPercent}% - 4px)`,
-                                                margin: '2px 4px',
-                                                borderRadius: '8px',
-                                                padding: '8px',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                cursor: 'pointer',
-                                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                                                ...getSubjectColorStyles(session.subjectClass, session.type === 'ai-suggested')
-                                            }}
-                                            className="hover:scale-[1.02] transition-transform z-10 overflow-hidden"
+                                            initial={{ opacity: 0, y: -8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -8 }}
+                                            className="sched-filter-dropdown"
                                         >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                                                <h4 style={{ fontSize: '12px', fontWeight: 700, lineHeight: 1.2, margin: 0 }}>{session.title}</h4>
-                                                {session.type === 'ai-suggested' && <Sparkles size={12} />}
-                                            </div>
-                                            <span style={{ fontSize: '10px', opacity: 0.8, fontWeight: 600 }}>{session.tutor}</span>
+                                            {SUBJECT_OPTIONS.map(opt => (
+                                                <button
+                                                    key={opt.value}
+                                                    className={`sched-filter-option ${subjectFilter === opt.value ? "active" : ""}`}
+                                                    onClick={() => { setSubjectFilter(opt.value); setShowFilterDropdown(false); }}
+                                                >
+                                                    <span className="sched-filter-dot" style={{ background: opt.color }} />
+                                                    {opt.label}
+                                                </button>
+                                            ))}
                                         </motion.div>
-                                    );
-                                })}
-
-                                {/* Current Time Indicator Line */}
-                                <div style={{ position: 'absolute', top: '35%', left: '60px', right: 0, height: '2px', background: '#ef4444', zIndex: 20 }}>
-                                    <div style={{ position: 'absolute', left: '-6px', top: '-4px', width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
-                                </div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
+
+                        {/* ── Week View ─────────────────────────────── */}
+                        {viewMode === "week" && (
+                            <div className="sched-grid-wrapper">
+                                <div className="sched-days-header">
+                                    <div className="sched-corner" />
+                                    {weekDates.map((date, idx) => {
+                                        const isToday = isSameDay(date, today);
+                                        return (
+                                            <div key={idx} className="sched-day-col-header">
+                                                <div className="sched-day-name">{DAYS[idx]}</div>
+                                                <div className={`sched-day-number ${isToday ? "today" : ""}`}>
+                                                    {date.getDate()}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="sched-time-grid">
+                                    {HOURS.map(hour => (
+                                        <div key={hour} className="sched-hour-row">
+                                            <div className="sched-hour-label">{formatHour(hour)}</div>
+                                            <div className="sched-hour-cells">
+                                                {DAYS.map((_, dayIdx) => (
+                                                    <div
+                                                        key={dayIdx}
+                                                        className="sched-cell"
+                                                        onClick={() => openBookingFromSlot(dayIdx, hour)}
+                                                        title={`Book at ${DAYS[dayIdx]} ${formatHour(hour)}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {filteredSessions.map(session => {
+                                        const topPercent = ((session.startTime - 7) / HOURS.length) * 100;
+                                        const heightPercent = (session.duration / HOURS.length) * 100;
+                                        const leftPercent = (session.day / 7) * 100;
+                                        const widthPercent = 100 / 7;
+
+                                        return (
+                                            <motion.div
+                                                key={session.id}
+                                                layoutId={session.id}
+                                                initial={{ opacity: 0, scale: 0.92 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.9 }}
+                                                whileHover={{ scale: 1.03, zIndex: 30 }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedSession(session); }}
+                                                className="sched-session-block"
+                                                style={{
+                                                    top: `${topPercent}%`,
+                                                    left: `calc(60px + ${leftPercent}% * (100% - 60px) / 100%)`,
+                                                    width: `calc((100% - 60px) * ${widthPercent / 100} - 8px)`,
+                                                    height: `calc(${heightPercent}% - 4px)`,
+                                                    ...getSubjectColorStyles(session.subjectClass, session.type === "ai-suggested"),
+                                                }}
+                                            >
+                                                <div className="sched-session-top">
+                                                    <h4 className="sched-session-title">{session.title}</h4>
+                                                    {session.type === "ai-suggested" && <Sparkles size={12} />}
+                                                </div>
+                                                <span className="sched-session-tutor">{session.tutor}</span>
+                                                <span className="sched-session-time">{formatHour(session.startTime)} – {formatHour(session.startTime + session.duration)}</span>
+                                            </motion.div>
+                                        );
+                                    })}
+
+                                    {isCurrentWeek && currentTimeTop >= 0 && currentTimeTop <= 100 && (
+                                        <div className="sched-now-line" style={{ top: `${currentTimeTop}%` }}>
+                                            <div className="sched-now-dot" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Month View ────────────────────────────── */}
+                        {viewMode === "month" && (
+                            <MonthView
+                                weekStart={weekStart}
+                                sessions={filteredSessions}
+                                today={today}
+                                onSelectDay={(d) => { setWeekStart(getMonday(d)); setViewMode("week"); }}
+                            />
+                        )}
                     </div>
                 </div>
 
-                {/* ── Sidebar Column ────────────────────── */}
+                {/* ━━ Sidebar ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
                 <div className="dash-side-column">
 
-                    {/* AI Suggestions Card */}
-                    <div className="dash-sidebar-card" style={{ background: 'linear-gradient(135deg, var(--bg-card) 0%, #f0efff 100%)', border: '1px solid var(--primary-light)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ background: 'var(--primary)', color: 'white', padding: '6px', borderRadius: '8px' }}><Sparkles size={16} /></div>
-                                <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Smart Curriculum</h2>
+                    {/* Today's sessions summary */}
+                    <div className="dash-sidebar-card">
+                        <div className="sidebar-card-header" style={{ marginBottom: "16px" }}>
+                            <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>Today&apos;s Sessions</h2>
+                            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)" }}>{today.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        </div>
+                        {sessions.filter(s => s.day === today.getDay()).length === 0 ? (
+                            <p style={{ fontSize: "13px", color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }}>No sessions today — enjoy your free time! 🎉</p>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                {sessions.filter(s => s.day === today.getDay()).map(s => (
+                                    <div
+                                        key={s.id}
+                                        className="sched-sidebar-session"
+                                        onClick={() => setSelectedSession(s)}
+                                    >
+                                        <div className="sched-sidebar-avatar">
+                                            <Image src={s.avatar} alt={s.tutor} width={36} height={36} style={{ objectFit: "contain" }} />
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <h4 style={{ fontSize: "13px", fontWeight: 700, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</h4>
+                                            <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>{s.tutor}</p>
+                                        </div>
+                                        <div style={{ textAlign: "right" }}>
+                                            <span style={{ fontSize: "12px", fontWeight: 700 }}>{formatHour(s.startTime)}</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
+                        )}
+                    </div>
 
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <div style={{ position: 'relative', width: '36px', height: '20px', background: showAISuggestions ? 'var(--primary)' : 'var(--border-color)', borderRadius: '20px', transition: 'background 0.3s' }}>
+                    {/* AI Suggestions Card */}
+                    <div className="dash-sidebar-card" style={{ background: "linear-gradient(135deg, var(--bg-card) 0%, #f0efff 100%)", border: "1px solid var(--primary-light)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <div style={{ background: "var(--primary)", color: "white", padding: "6px", borderRadius: "8px" }}><Sparkles size={16} /></div>
+                                <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0 }}>Smart Suggestions</h2>
+                            </div>
+                            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                                <div
+                                    className="sched-toggle-switch"
+                                    style={{ background: showAISuggestions ? "var(--primary)" : "var(--border-color)" }}
+                                    onClick={() => setShowAISuggestions(!showAISuggestions)}
+                                >
                                     <motion.div
+                                        className="sched-toggle-knob"
                                         layout
-                                        style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px' }}
-                                        animate={{ left: showAISuggestions ? '18px' : '2px' }}
+                                        animate={{ left: showAISuggestions ? "18px" : "2px" }}
                                     />
                                 </div>
-                                <input type="checkbox" checked={showAISuggestions} onChange={() => setShowAISuggestions(!showAISuggestions)} style={{ display: 'none' }} />
                             </label>
                         </div>
 
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: '1.5' }}>
-                            AI has generated optimized learning slots based on your recent struggles and upcoming goals.
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px", lineHeight: "1.5" }}>
+                            AI-optimized learning slots based on your recent struggles and upcoming goals.
                         </p>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <AnimatePresence>
-                                {SUGGESTIONS.map(sug => (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            <AnimatePresence mode="popLayout">
+                                {suggestions.map(sug => (
                                     <motion.div
                                         key={sug.id}
-                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
-                                        style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid var(--border-color)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, x: -100, height: 0, marginBottom: 0, padding: 0 }}
+                                        className="sched-suggestion-card"
                                     >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{sug.title}</h4>
-                                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {sug.duration}</span>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                                            <h4 style={{ fontSize: "14px", fontWeight: 700, margin: 0, color: "var(--text-main)" }}>{sug.title}</h4>
+                                            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}><Clock size={12} /> {sug.duration}</span>
                                         </div>
-                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>{sug.reason}</p>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 600, fontSize: '12px', border: 'none', cursor: 'pointer', transition: 'background 0.2s' }} className="hover:bg-indigo-200">Add to Schedule</button>
-                                            <button style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-main)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><MoreHorizontal size={16} /></button>
+                                        <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "12px", lineHeight: 1.4 }}>{sug.reason}</p>
+                                        <div style={{ display: "flex", gap: "8px" }}>
+                                            <button className="sched-add-btn" onClick={() => addSuggestionToSchedule(sug)}>
+                                                <Plus size={14} /> Add to Schedule
+                                            </button>
+                                            <button className="sched-more-btn"><MoreHorizontal size={16} /></button>
                                         </div>
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
+                            {suggestions.length === 0 && (
+                                <p style={{ fontSize: "13px", color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>All suggestions scheduled! ✨</p>
+                            )}
                         </div>
                     </div>
 
-                    {/* Upcoming Deadlines */}
+                    {/* Upcoming Goals */}
                     <div className="dash-sidebar-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Upcoming Goals</h2>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <div style={{ width: '4px', borderRadius: '4px', background: '#f97316' }} />
+                        <h2 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 16px" }}>Upcoming Goals</h2>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                            <div style={{ display: "flex", gap: "12px" }}>
+                                <div style={{ width: "4px", borderRadius: "4px", background: "#f97316" }} />
                                 <div>
-                                    <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px' }}>Physics Midterm</h4>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Friday, Oct 15 • Covers Ch 1-4</p>
+                                    <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>Physics Midterm</h4>
+                                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>Friday, Mar 6 • Covers Ch 1-4</p>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <div style={{ width: '4px', borderRadius: '4px', background: '#a855f7' }} />
+                            <div style={{ display: "flex", gap: "12px" }}>
+                                <div style={{ width: "4px", borderRadius: "4px", background: "#a855f7" }} />
                                 <div>
-                                    <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px' }}>French Oral Exam</h4>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Next Monday • Conversational</p>
+                                    <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>French Oral Exam</h4>
+                                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>Next Monday • Conversational</p>
                                 </div>
                             </div>
                         </div>
-                        <button style={{ marginTop: '20px', width: '100%', background: 'var(--bg-main)', border: 'none', padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }} className="hover:bg-slate-200 transition-colors">
-                            View All Deadlines
-                        </button>
                     </div>
-
                 </div>
+            </div>
+
+            {/* ━━ SESSION DETAIL MODAL ━━━━━━━━━━━━━━━━━━━━━━━ */}
+            <AnimatePresence>
+                {selectedSession && (
+                    <motion.div
+                        className="sched-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSelectedSession(null)}
+                    >
+                        <motion.div
+                            className="sched-detail-modal"
+                            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button className="sched-modal-close" onClick={() => setSelectedSession(null)}>
+                                <X size={18} />
+                            </button>
+
+                            <div className="sched-modal-color-bar" style={{ background: subjectColors[selectedSession.subjectClass]?.border ?? "#64748b" }} />
+
+                            <div className="sched-modal-body">
+                                <div className="sched-modal-avatar-row">
+                                    <div className="sched-modal-avatar">
+                                        <Image src={selectedSession.avatar} alt={selectedSession.tutor} width={56} height={56} style={{ objectFit: "contain" }} />
+                                    </div>
+                                    <div>
+                                        <h2 className="sched-modal-title">{selectedSession.title}</h2>
+                                        <p className="sched-modal-tutor">
+                                            <User size={14} /> {selectedSession.tutor}
+                                            {selectedSession.type === "ai-suggested" && (
+                                                <span className="sched-ai-badge"><Sparkles size={10} /> AI Suggested</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="sched-modal-meta">
+                                    <div className="sched-modal-meta-item">
+                                        <CalendarIcon size={16} />
+                                        <span>{FULL_DAYS[selectedSession.day]}</span>
+                                    </div>
+                                    <div className="sched-modal-meta-item">
+                                        <Clock size={16} />
+                                        <span>{formatHour(selectedSession.startTime)} – {formatHour(selectedSession.startTime + selectedSession.duration)} ({selectedSession.duration}h)</span>
+                                    </div>
+                                    <div className="sched-modal-meta-item">
+                                        <BookOpen size={16} />
+                                        <span style={{ textTransform: "capitalize" }}>{selectedSession.subjectClass}</span>
+                                    </div>
+                                </div>
+
+                                {selectedSession.description && (
+                                    <p className="sched-modal-desc">{selectedSession.description}</p>
+                                )}
+
+                                <div className="sched-modal-actions">
+                                    <Link
+                                        href={`/board?tutor=${encodeURIComponent(selectedSession.tutor)}&topic=${encodeURIComponent(selectedSession.title)}`}
+                                        className="sched-start-btn"
+                                    >
+                                        <Play size={18} fill="currentColor" /> Start Whiteboard Session
+                                    </Link>
+                                    <button className="sched-delete-btn" onClick={() => deleteSession(selectedSession.id)}>
+                                        <Trash2 size={16} /> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ━━ BOOKING MODAL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            <AnimatePresence>
+                {showBookingModal && (
+                    <motion.div
+                        className="sched-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowBookingModal(false)}
+                    >
+                        <motion.div
+                            className="sched-booking-modal"
+                            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button className="sched-modal-close" onClick={() => setShowBookingModal(false)}>
+                                <X size={18} />
+                            </button>
+
+                            <div className="sched-modal-color-bar" style={{ background: subjectColors[bookSubject]?.border ?? "#4f46e5" }} />
+
+                            <div className="sched-modal-body">
+                                <h2 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 24px" }}>Book a Session</h2>
+
+                                <div className="sched-form-grid">
+                                    <div className="sched-form-group full">
+                                        <label>Session Title</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Calculus Differentiation"
+                                            value={bookTitle}
+                                            onChange={e => setBookTitle(e.target.value)}
+                                            className="sched-input"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="sched-form-group">
+                                        <label>Subject</label>
+                                        <select value={bookSubject} onChange={e => setBookSubject(e.target.value as SubjectClass)} className="sched-input">
+                                            <option value="math">Mathematics</option>
+                                            <option value="science">Science</option>
+                                            <option value="history">History</option>
+                                            <option value="languages">Languages</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="sched-form-group">
+                                        <label>Tutor</label>
+                                        <select value={bookTutor} onChange={e => setBookTutor(e.target.value)} className="sched-input">
+                                            {TUTOR_OPTIONS.map(t => (
+                                                <option key={t.value} value={t.value}>{t.value}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="sched-form-group">
+                                        <label>Day</label>
+                                        <select value={bookDay} onChange={e => setBookDay(Number(e.target.value))} className="sched-input">
+                                            {DAYS.map((d, i) => (
+                                                <option key={i} value={i}>{d}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="sched-form-group">
+                                        <label>Start Time</label>
+                                        <select value={bookHour} onChange={e => setBookHour(Number(e.target.value))} className="sched-input">
+                                            {HOURS.map(h => (
+                                                <option key={h} value={h}>{formatHour(h)}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="sched-form-group">
+                                        <label>Duration</label>
+                                        <select value={bookDuration} onChange={e => setBookDuration(Number(e.target.value))} className="sched-input">
+                                            <option value={0.5}>30 min</option>
+                                            <option value={1}>1 hour</option>
+                                            <option value={1.5}>1.5 hours</option>
+                                            <option value={2}>2 hours</option>
+                                            <option value={3}>3 hours</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="sched-form-group full">
+                                        <label>Description (optional)</label>
+                                        <textarea
+                                            placeholder="What topics will you cover?"
+                                            value={bookDesc}
+                                            onChange={e => setBookDesc(e.target.value)}
+                                            className="sched-input sched-textarea"
+                                            rows={3}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="sched-modal-actions" style={{ marginTop: "24px" }}>
+                                    <button className="sched-start-btn" style={{ flex: 1 }} onClick={submitBooking}>
+                                        <Plus size={18} /> Create Session
+                                    </button>
+                                    <button className="sched-cancel-btn" onClick={() => setShowBookingModal(false)}>Cancel</button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MONTH VIEW SUB-COMPONENT
+   ═══════════════════════════════════════════════════════════ */
+
+function MonthView({ weekStart, sessions, today, onSelectDay }: {
+    weekStart: Date;
+    sessions: Session[];
+    today: Date;
+    onSelectDay: (d: Date) => void;
+}) {
+    const month = weekStart.getMonth();
+    const year = weekStart.getFullYear();
+
+    const firstOfMonth = new Date(year, month, 1);
+    const startDay = firstOfMonth.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < startDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const sessionCountByDay = (dayOfWeek: number) => sessions.filter(s => s.day === dayOfWeek).length;
+
+    return (
+        <div className="sched-month-view">
+            <div className="sched-month-grid-header">
+                {DAYS.map(d => <div key={d} className="sched-month-day-name">{d}</div>)}
+            </div>
+            <div className="sched-month-grid">
+                {cells.map((date, idx) => {
+                    if (!date) return <div key={idx} className="sched-month-cell empty" />;
+                    const isToday = isSameDay(date, today);
+                    const count = sessionCountByDay(date.getDay());
+                    return (
+                        <motion.div
+                            key={idx}
+                            className={`sched-month-cell ${isToday ? "today" : ""}`}
+                            whileHover={{ scale: 1.08 }}
+                            onClick={() => onSelectDay(date)}
+                        >
+                            <span className="sched-month-date">{date.getDate()}</span>
+                            {count > 0 && (
+                                <div className="sched-month-dots">
+                                    {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                                        <span key={i} className="sched-month-dot" />
+                                    ))}
+                                </div>
+                            )}
+                        </motion.div>
+                    );
+                })}
             </div>
         </div>
     );

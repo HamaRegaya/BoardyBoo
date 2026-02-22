@@ -271,6 +271,7 @@ export function useWebSocket() {
                 tool: resp.tool || fnResp.name || "unknown",
                 action: resp.action || "add",
                 elements: resp.elements,
+                files: resp.files,
               };
               console.log("[Canvas CMD]", cmd.tool, cmd.action, cmd.elements.length, "elements");
               setCanvasCommands((prev) => [...prev, cmd]);

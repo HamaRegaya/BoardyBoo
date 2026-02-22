@@ -146,7 +146,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
 
     # RunConfig for bidi-streaming with audio.
     run_config = RunConfig(
-        response_modalities=["AUDIO"],
+        response_modalities=[types.Modality.AUDIO],
         streaming_mode=StreamingMode.BIDI,
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
@@ -287,9 +287,26 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
 
                 # ── Forward the full event JSON to the client ─────────────
                 try:
-                    event_json = event.model_dump_json(
-                        exclude_none=True, by_alias=True
-                    )
+                    # Using mode='json' ensures bytes (audio) are base64-encoded.
+                    event_dict = event.model_dump(mode='json', exclude_none=True, by_alias=True)
+
+                    # ── Data Bridge Re-injection ────────────────────────────
+                    # If this event contains a tool response with deferred data,
+                    # re-inject it before sending to the client.
+                    if event_dict.get("content") and event_dict["content"].get("parts"):
+                        for part in event_dict["content"]["parts"]:
+                            resp = part.get("functionResponse")
+                            if resp and resp.get("response"):
+                                r_data = resp["response"]
+                                if isinstance(r_data, dict) and "deferred_file_id" in r_data:
+                                    f_id = r_data["deferred_file_id"]
+                                    from app.tools.canvas_tools import image_bridge
+                                    if f_id in image_bridge:
+                                        # Inject the files dict for the frontend to pick up
+                                        r_data["files"] = {f_id: image_bridge[f_id]}
+                                        logger.info("Re-injected deferred image data for fileId: %s", f_id)
+
+                    event_json = json.dumps(event_dict)
                     await websocket.send_text(event_json)
                 except Exception as send_exc:
                     logger.error("Failed to send event: %s", send_exc)

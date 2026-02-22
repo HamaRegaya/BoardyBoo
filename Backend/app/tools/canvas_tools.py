@@ -283,6 +283,77 @@ def highlight_area(
     }
 
 
+
+# ── Image Data Bridge ─────────────────────────────────────────────────────────
+
+# This global store allows us to pass large image data to the frontend without
+# blobbing it into the LLM conversation history, which causes 1007 errors.
+# Key: file_id, Value: { dataURL, mimeType }
+image_bridge: Dict[str, Dict[str, Any]] = {}
+
+
+async def add_image_to_canvas(
+    image_base64: str,
+    x: float = 100.0,
+    y: float = 100.0,
+    width: float = 400.0,
+    height: float = 300.0,
+    mime_type: str = "image/png",
+) -> Dict[str, Any]:
+    """Place a base64-encoded image on the student's whiteboard canvas.
+
+    Parameters
+    ----------
+    image_base64:
+        The raw image bytes encoded as a base64 string (no data-URL prefix).
+    x:
+        Horizontal position in canvas pixels.
+    y:
+        Vertical position in canvas pixels.
+    width:
+        Display width in canvas pixels (default 400).
+    height:
+        Display height in canvas pixels (default 300).
+    mime_type:
+        MIME type of the image (default ``"image/png"``).
+    """
+    import uuid as _uuid
+
+    file_id = f"img-{_uuid.uuid4().hex[:12]}"
+    data_url = f"data:{mime_type};base64,{image_base64}"
+
+    element = {
+        "type": "image",
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+        "fileId": file_id,
+        "status": "saved",
+    }
+
+    # Store the actual data in the bridge for main.py to re-inject.
+    # We do NOT return the 'files' dict to the LLM to prevent 1007 errors.
+    image_bridge[file_id] = {
+        "id": file_id,
+        "dataURL": data_url,
+        "mimeType": mime_type,
+        "created": 0,
+    }
+
+    logger.info(
+        "add_image_to_canvas at (%.0f, %.0f) %dx%d fileId=%s (deferred)",
+        x, y, width, height, file_id,
+    )
+    return{
+        "status": "ok",
+        "tool": "add_image_to_canvas",
+        "action": "add",
+        "elements": [element],
+        "deferred_file_id": file_id,  # Signals main.py to inject files[file_id]
+    }
+
+
 def clear_canvas() -> Dict[str, Any]:
     """Clear everything from the whiteboard canvas."""
     return {
@@ -300,5 +371,6 @@ canvas_tools = [
     write_text_on_canvas,
     draw_diagram,
     highlight_area,
+    add_image_to_canvas,
     clear_canvas,
 ]

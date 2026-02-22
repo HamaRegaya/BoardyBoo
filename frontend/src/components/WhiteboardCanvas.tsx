@@ -54,8 +54,20 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
     const toExcalidrawElements = useCallback((aiElements: any[]) => {
       const convert = convertRef.current;
 
-      // Build skeletons that match ExcalidrawElementSkeleton type
-      const skeletons = aiElements.map((el: any) => {
+      // Separate image elements (handled manually) from standard elements
+      const imageElements: any[] = [];
+      const standardElements: any[] = [];
+
+      for (const el of aiElements) {
+        if (el.type === "image") {
+          imageElements.push(el);
+        } else {
+          standardElements.push(el);
+        }
+      }
+
+      // Build skeletons for standard elements
+      const skeletons = standardElements.map((el: any) => {
         const base: any = {
           type: el.type || "text",
           x: el.x ?? 0,
@@ -92,23 +104,33 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
         return base;
       });
 
-      // Use Excalidraw's official converter if available (fills all required fields)
-      if (convert) {
-        try {
-          const result = convert(skeletons, { regenerateIds: true });
-          console.log(`[Canvas] convertToExcalidrawElements: ${skeletons.length} skeletons → ${result.length} elements`);
-          return result;
-        } catch (err) {
-          console.warn("[Canvas] convertToExcalidrawElements failed, falling back:", err);
+      // Convert standard elements via Excalidraw's official converter
+      let convertedStandard: any[] = [];
+      if (skeletons.length > 0) {
+        if (convert) {
+          try {
+            convertedStandard = convert(skeletons, { regenerateIds: true });
+            console.log(`[Canvas] convertToExcalidrawElements: ${skeletons.length} skeletons → ${convertedStandard.length} elements`);
+          } catch (err) {
+            console.warn("[Canvas] convertToExcalidrawElements failed, falling back:", err);
+            convertedStandard = skeletons;
+          }
+        } else {
+          convertedStandard = skeletons;
         }
       }
 
-      // Fallback: manual element creation (missing some Excalidraw internals)
-      console.warn("[Canvas] Using manual fallback element creation");
+      // Build image elements manually (convertToExcalidrawElements doesn't support images)
       let nextId = Date.now();
-      return skeletons.map((el: any) => ({
-        ...el,
-        id: `ai-${nextId++}`,
+      const convertedImages = imageElements.map((el: any) => ({
+        type: "image" as const,
+        id: `ai-img-${nextId++}`,
+        x: el.x ?? 0,
+        y: el.y ?? 0,
+        width: el.width ?? 400,
+        height: el.height ?? 300,
+        fileId: el.fileId,
+        status: "saved",
         seed: Math.floor(Math.random() * 100000),
         version: 1,
         versionNonce: Math.floor(Math.random() * 100000),
@@ -117,11 +139,21 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
         boundElements: null,
         link: null,
         locked: false,
-        roughness: 1,
-        strokeWidth: 2,
-        strokeStyle: "solid",
         angle: 0,
+        strokeColor: "transparent",
+        backgroundColor: "transparent",
+        fillStyle: "solid",
+        strokeWidth: 0,
+        strokeStyle: "solid",
+        roughness: 0,
+        opacity: 100,
       }));
+
+      if (convertedImages.length > 0) {
+        console.log(`[Canvas] Created ${convertedImages.length} image element(s)`);
+      }
+
+      return [...convertedStandard, ...convertedImages];
     }, []);
 
     // ── Apply canvas commands when they arrive or API becomes ready ───────
@@ -146,6 +178,24 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
         if (cmd.action === "clear") {
           api.updateScene({ elements: [] });
           continue;
+        }
+
+        // Register image files BEFORE adding elements so Excalidraw can resolve fileIds
+        if (cmd.files && typeof cmd.files === "object") {
+          const fileEntries = Object.values(cmd.files).map((f: any) => ({
+            id: f.id,
+            dataURL: f.dataURL,
+            mimeType: f.mimeType,
+            created: f.created || Date.now(),
+          }));
+          if (fileEntries.length > 0) {
+            try {
+              api.addFiles(fileEntries);
+              console.log(`[Canvas] Registered ${fileEntries.length} file(s) with Excalidraw`);
+            } catch (err) {
+              console.warn("[Canvas] addFiles failed:", err);
+            }
+          }
         }
 
         const newElements = toExcalidrawElements(cmd.elements);

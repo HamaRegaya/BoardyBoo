@@ -26,11 +26,11 @@ class Settings(BaseSettings):
     # ── Models ─────────────────────────────────────────────────────────────
     # Root agent uses native-audio model; sub-agents need bidi-compatible models
     tutor_agent_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
-    planner_agent_model: str = "gemini-2.0-flash-live-001"
-    canvas_agent_model: str = "gemini-2.0-flash-live-001"
-    calendar_agent_model: str = "gemini-2.0-flash-live-001"
-    media_agent_model: str = "gemini-2.0-flash-live-001"
-    progress_agent_model: str = "gemini-2.0-flash-live-001"
+    planner_agent_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
+    canvas_agent_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
+    calendar_agent_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
+    media_agent_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
+    progress_agent_model: str = "gemini-2.5-flash-native-audio-preview-12-2025"
 
     # ── MCP GenMedia ───────────────────────────────────────────────────────
     genmedia_mcp_server_url: str = "http://localhost:8081"

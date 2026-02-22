@@ -20,10 +20,14 @@ import logging
 
 from google.adk.agents import Agent
 
-
+from app.agents.calendar_agent import build_calendar_agent
+from app.agents.media_agent import build_media_agent
+from app.agents.planner_agent import build_planner_agent
+from app.agents.progress_agent import build_progress_agent
 from app.config import settings
 from app.tools.canvas_tools import canvas_tools
-
+from app.tools.firestore_tools import get_progress, save_session_notes
+from app.tools.storage_tools import upload_canvas_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +114,11 @@ canvas_agent — draw it yourself.
 def build_tutor_agent() -> Agent:
     """Construct the complete agent tree with per-agent voice configs."""
 
-    # Sub-agents ()
-
+    # Sub-agents (canvas tools are on the root tutor agent directly)
+    planner = build_planner_agent()
+    calendar = build_calendar_agent()
+    media = build_media_agent()
+    progress = build_progress_agent()
 
     # Root agent — uses model string; speech_config is set via RunConfig
     root = Agent(
@@ -120,8 +127,11 @@ def build_tutor_agent() -> Agent:
         instruction=TUTOR_INSTRUCTION,
         tools=[
             *canvas_tools,
+            get_progress,
+            save_session_notes,
+            upload_canvas_snapshot,
         ],
-        sub_agents=[],
+        sub_agents=[planner, calendar, media, progress],
     )
 
     logger.info(

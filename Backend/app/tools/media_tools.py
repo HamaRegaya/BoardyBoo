@@ -1,63 +1,93 @@
+import base64
 import mimetypes
 import os
+from typing import Any, Dict, List, Optional
+
 from google import genai
 from google.genai import types
 
+from app.tools.canvas_tools import add_image_to_canvas
+
+
 class MediaTools:
-    """Tool for generating educational images using Nano Babana Pro (Gemini API)."""
+    """Tool for generating educational images using Gemini API and displaying them on the canvas."""
+
     def __init__(self):
         self.client = genai.Client(
             api_key=os.environ.get("GEMINI_API_KEY"),
         )
         self.model = "gemini-3-pro-image-preview"
 
-    def generate_image(self, prompt: str, file_prefix: str = "media_image") -> str:
-        """
-        Generate an image from a prompt using Nano Babana Pro (Gemini API).
-        Returns the saved file path.
-        """
+    async def generate_image(self, prompt: str) -> str:
         contents = [
             types.Content(
                 role="user",
                 parts=[types.Part.from_text(text=prompt)],
             ),
         ]
-        tools = [
-            types.Tool(googleSearch=types.GoogleSearch()),
-        ]
+
         generate_content_config = types.GenerateContentConfig(
-            image_config=types.ImageConfig(
-                aspect_ratio="",
-                image_size="1K",
-                person_generation="",
-            ),
+            image_config=types.ImageConfig(image_size="1K"),
             response_modalities=["IMAGE", "TEXT"],
-            tools=tools,
         )
-        file_index = 0
-        saved_files = []
-        for chunk in self.client.models.generate_content_stream(
+
+        # 🔥 IMPORTANT: await first
+        stream = await self.client.aio.models.generate_content_stream(
             model=self.model,
             contents=contents,
             config=generate_content_config,
-        ):
-            if chunk.parts is None:
-                continue
-            if chunk.parts[0].inline_data and chunk.parts[0].inline_data.data:
-                inline_data = chunk.parts[0].inline_data
-                data_buffer = inline_data.data
-                file_extension = mimetypes.guess_extension(inline_data.mime_type)
-                file_name = f"{file_prefix}_{file_index}{file_extension}"
-                with open(file_name, "wb") as f:
-                    f.write(data_buffer)
-                saved_files.append(file_name)
-                file_index += 1
-            elif chunk.text:
-                # Optionally log or return text
-                pass
-        return saved_files[0] if saved_files else ""
+        )
 
-# Example usage:
-# tool = MediaTools()
-# file_path = tool.generate_image("Draw a labelled diagram of a plant cell.")
-# print(f"Image saved to: {file_path}")
+        async for chunk in stream:
+            if not chunk.parts:
+                continue
+
+            part = chunk.parts[0]
+
+            if part.inline_data and part.inline_data.data:
+                return base64.b64encode(part.inline_data.data).decode("utf-8")
+
+        return ""
+
+    async def generate_and_show_image(
+        self,
+        prompt: str,
+        x: float = 100.0,
+        y: float = 100.0,
+        width: float = 400.0,
+        height: float = 300.0,
+    ) -> Dict[str, Any]:
+        """
+        Generate an educational image and place it on the student's whiteboard.
+
+        Parameters
+        ----------
+        prompt:
+            Detailed description of the image to generate.
+        x:
+            Horizontal position on the canvas (default 100).
+        y:
+            Vertical position on the canvas (default 100).
+        width:
+            Display width in pixels (default 400).
+        height:
+            Display height in pixels (default 300).
+
+        Returns
+        -------
+        dict
+            Canvas command payload with the image element and file data,
+            ready to be rendered on the Excalidraw whiteboard.
+        """
+        image_b64 = await self.generate_image(prompt)
+        if not image_b64:
+            return {"status": "error", "message": "Image generation failed — no data returned."}
+
+        return await add_image_to_canvas(
+            image_base64=image_b64,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            mime_type="image/png",
+        )

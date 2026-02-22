@@ -20,10 +20,18 @@ export interface CanvasCommand {
     tool: string;
     action: "add" | "replace" | "clear";
     elements: CanvasElement[];
+    files?: Record<string, CanvasFileData>;
+}
+
+export interface CanvasFileData {
+    id: string;
+    dataURL: string;
+    mimeType: string;
+    created: number;
 }
 
 export interface CanvasElement {
-    type: "text" | "rectangle" | "ellipse" | "arrow" | "line" | "freedraw" | string;
+    type: "text" | "rectangle" | "ellipse" | "arrow" | "line" | "freedraw" | "image" | string;
     x?: number;
     y?: number;
     width?: number;
@@ -36,6 +44,9 @@ export interface CanvasElement {
     fillStyle?: string;
     opacity?: number;
     points?: [number, number][];
+    // Image-specific fields
+    fileId?: string;
+    status?: "pending" | "saved" | "error";
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────

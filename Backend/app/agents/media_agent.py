@@ -42,11 +42,11 @@ When media generation is complete, transfer back to the tutor agent.
 
 
 def build_media_agent() -> Agent:
-    """Build the media agent with Nano Babana Pro (media_tools)."""
-    tools = [MediaTools()]
+    """Build the media agent for generating and showing images."""
+    m_tools = MediaTools()
     return Agent(
         name="media_agent",
         model=settings.media_agent_model,
         instruction=MEDIA_AGENT_INSTRUCTION,
-        tools=tools,
+        tools=[m_tools.generate_and_show_image],
     )

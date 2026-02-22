@@ -134,22 +134,24 @@ function ProfileContent() {
 
     return (
         <div className="dash-page" style={{ padding: "40px 48px" }}>
-            {/* ── Profile Header Card ─────────────────────────── */}
+            {/* ── Profile Header ──────────────────────────────── */}
             <div className="prof-header-card">
-                <div className="prof-header-bg" />
                 <div className="prof-header-content">
-                    <div className="prof-avatar-section">
-                        <div className="prof-avatar-wrapper">
-                            <img
-                                src={USER.avatar}
-                                alt={USER.name}
-                                className="prof-avatar-img"
-                            />
+                    <div className="prof-avatar-wrapper">
+                        <img
+                            src={USER.avatar}
+                            alt={USER.name}
+                            className="prof-avatar-img"
+                        />
+                        {isEditing && (
                             <button className="prof-avatar-edit" title="Change photo">
                                 <Camera size={14} />
                             </button>
-                        </div>
-                        <div className="prof-identity">
+                        )}
+                    </div>
+
+                    <div className="prof-info">
+                        <div className="prof-name-row">
                             {isEditing ? (
                                 <input
                                     className="prof-edit-name"
@@ -160,13 +162,25 @@ function ProfileContent() {
                             ) : (
                                 <h1 className="prof-name">{USER.name}</h1>
                             )}
-                            <div className="prof-badges-row">
-                                <span className="prof-badge grade"><GraduationCap size={12} /> {USER.grade}</span>
-                                <span className="prof-badge school"><BookOpen size={12} /> {USER.school}</span>
-                                <span className="prof-badge joined"><Calendar size={12} /> Joined {USER.joinDate}</span>
-                            </div>
+                        </div>
+                        {isEditing ? (
+                            <textarea
+                                className="prof-edit-bio"
+                                value={editBio}
+                                onChange={e => setEditBio(e.target.value)}
+                                rows={2}
+                                placeholder="Write something about yourself..."
+                            />
+                        ) : (
+                            <p className="prof-bio">{USER.bio}</p>
+                        )}
+                        <div className="prof-badges-row">
+                            <span className="prof-badge grade"><GraduationCap size={12} /> {USER.grade}</span>
+                            <span className="prof-badge"><BookOpen size={12} /> {USER.school}</span>
+                            <span className="prof-badge"><Calendar size={12} /> Joined {USER.joinDate}</span>
                         </div>
                     </div>
+
                     <div className="prof-header-actions">
                         {isEditing ? (
                             <>
@@ -179,61 +193,31 @@ function ProfileContent() {
                     </div>
                 </div>
 
-                {/* Bio */}
-                <div className="prof-bio-section">
-                    {isEditing ? (
-                        <textarea
-                            className="prof-edit-bio"
-                            value={editBio}
-                            onChange={e => setEditBio(e.target.value)}
-                            rows={2}
-                            placeholder="Write something about yourself..."
-                        />
-                    ) : (
-                        <p className="prof-bio">{USER.bio}</p>
-                    )}
-                </div>
-
-                {/* Quick stats bar */}
+                {/* Quick stats */}
                 <div className="prof-stats-bar">
                     <div className="prof-stat-item">
-                        <div className="prof-stat-icon sessions"><BookOpen size={18} /></div>
-                        <div>
-                            <span className="prof-stat-value">{STATS.totalSessions}</span>
-                            <span className="prof-stat-label">Sessions</span>
-                        </div>
+                        <span className="prof-stat-value">{STATS.totalSessions}</span>
+                        <span className="prof-stat-label">Sessions</span>
                     </div>
                     <div className="prof-stat-divider" />
                     <div className="prof-stat-item">
-                        <div className="prof-stat-icon hours"><Clock size={18} /></div>
-                        <div>
-                            <span className="prof-stat-value">{STATS.totalHours}h</span>
-                            <span className="prof-stat-label">Study Hours</span>
-                        </div>
+                        <span className="prof-stat-value">{STATS.totalHours}h</span>
+                        <span className="prof-stat-label">Study Hours</span>
                     </div>
                     <div className="prof-stat-divider" />
                     <div className="prof-stat-item">
-                        <div className="prof-stat-icon streak"><Flame size={18} /></div>
-                        <div>
-                            <span className="prof-stat-value">{STATS.currentStreak} days</span>
-                            <span className="prof-stat-label">Current Streak</span>
-                        </div>
+                        <span className="prof-stat-value">{STATS.currentStreak}d</span>
+                        <span className="prof-stat-label">Streak</span>
                     </div>
                     <div className="prof-stat-divider" />
                     <div className="prof-stat-item">
-                        <div className="prof-stat-icon score"><BarChart3 size={18} /></div>
-                        <div>
-                            <span className="prof-stat-value">{STATS.averageScore}%</span>
-                            <span className="prof-stat-label">Avg. Score</span>
-                        </div>
+                        <span className="prof-stat-value">{STATS.averageScore}%</span>
+                        <span className="prof-stat-label">Avg. Score</span>
                     </div>
                     <div className="prof-stat-divider" />
                     <div className="prof-stat-item">
-                        <div className="prof-stat-icon badges"><Trophy size={18} /></div>
-                        <div>
-                            <span className="prof-stat-value">{STATS.badgesEarned}</span>
-                            <span className="prof-stat-label">Badges</span>
-                        </div>
+                        <span className="prof-stat-value">{STATS.badgesEarned}</span>
+                        <span className="prof-stat-label">Badges</span>
                     </div>
                 </div>
             </div>

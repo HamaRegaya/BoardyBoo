@@ -4,59 +4,42 @@
 
 /* ── Header Card ────────────────────────────────────── */
 .prof-header-card {
-    position: relative;
     background: var(--bg-card);
-    border-radius: 24px;
+    border-radius: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    margin-bottom: 28px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-    margin-bottom: 32px;
-}
-
-.prof-header-bg {
-    height: 120px;
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 40%, #7c3aed 100%);
-    background-size: 200% 200%;
-    animation: gradientShift 6s ease infinite;
 }
 
 .prof-header-content {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding: 0 32px;
-    margin-top: -50px;
-    position: relative;
-    z-index: 2;
-}
-
-.prof-avatar-section {
-    display: flex;
-    align-items: flex-end;
-    gap: 20px;
+    align-items: center;
+    gap: 24px;
+    padding: 28px 32px;
 }
 
 .prof-avatar-wrapper {
     position: relative;
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     flex-shrink: 0;
 }
 
 .prof-avatar-img {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
-    border: 4px solid var(--bg-card);
     object-fit: cover;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    border: 3px solid var(--bg-main);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .prof-avatar-edit {
     position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 28px;
-    height: 28px;
+    bottom: -2px;
+    right: -2px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: var(--primary);
     color: white;
@@ -72,20 +55,26 @@
     transform: scale(1.1);
 }
 
-.prof-identity {
-    padding-bottom: 4px;
-    padding-top: 16px;
+.prof-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.prof-name-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .prof-name {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
-    margin: 0 0 8px;
+    margin: 0 0 4px;
     color: var(--text-main);
 }
 
 .prof-edit-name {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
     border: none;
     border-bottom: 2px solid var(--primary);
@@ -93,13 +82,41 @@
     outline: none;
     color: var(--text-main);
     font-family: var(--font);
-    padding: 0 0 4px;
-    width: 300px;
+    padding: 0 0 2px;
+    width: 260px;
+    margin-bottom: 4px;
+}
+
+.prof-bio {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0 0 8px;
+}
+
+.prof-edit-bio {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text-main);
+    outline: none;
+    resize: vertical;
+    background: var(--bg-main);
+    margin-bottom: 8px;
+    transition: border-color 0.15s;
+}
+
+.prof-edit-bio:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
 .prof-badges-row {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
@@ -107,9 +124,9 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
     font-weight: 600;
     background: var(--bg-main);
     color: var(--text-muted);
@@ -124,14 +141,15 @@
 .prof-header-actions {
     display: flex;
     gap: 8px;
-    padding-top: 48px;
+    flex-shrink: 0;
+    align-self: flex-start;
 }
 
 .prof-edit-btn {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
     background: white;
@@ -145,14 +163,13 @@
 .prof-edit-btn:hover {
     border-color: var(--primary);
     color: var(--primary);
-    transform: translateY(-1px);
 }
 
 .prof-save-btn {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 10px;
     border: none;
     background: var(--primary);
@@ -165,12 +182,11 @@
 
 .prof-save-btn:hover {
     background: #4338ca;
-    transform: translateY(-1px);
 }
 
 .prof-cancel-btn {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
     background: white;
@@ -187,96 +203,25 @@
     color: #ef4444;
 }
 
-/* ── Bio ────────────────────────────────────────────── */
-.prof-bio-section {
-    padding: 16px 32px 0;
-}
-
-.prof-bio {
-    font-size: 14px;
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin: 0;
-}
-
-.prof-edit-bio {
-    width: 100%;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-family: var(--font);
-    font-size: 14px;
-    color: var(--text-main);
-    outline: none;
-    resize: vertical;
-    background: var(--bg-main);
-    transition: border-color 0.15s;
-}
-
-.prof-edit-bio:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
 /* ── Stats Bar ──────────────────────────────────────── */
 .prof-stats-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0;
-    padding: 24px 32px;
-    margin-top: 16px;
+    justify-content: space-around;
+    padding: 20px 32px;
     border-top: 1px solid var(--border-color);
 }
 
 .prof-stat-item {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 32px;
-}
-
-.prof-stat-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.prof-stat-icon.sessions {
-    background: #e0e7ff;
-    color: #4f46e5;
-}
-
-.prof-stat-icon.hours {
-    background: #d1fae5;
-    color: #10b981;
-}
-
-.prof-stat-icon.streak {
-    background: #ffedd5;
-    color: #f97316;
-}
-
-.prof-stat-icon.score {
-    background: #f3e8ff;
-    color: #a855f7;
-}
-
-.prof-stat-icon.badges {
-    background: #fef3c7;
-    color: #f59e0b;
-}
-
-.prof-stat-item > div {
-    display: flex;
     flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 16px;
 }
 
 .prof-stat-value {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 800;
     color: var(--text-main);
     line-height: 1.2;
@@ -292,7 +237,7 @@
 
 .prof-stat-divider {
     width: 1px;
-    height: 36px;
+    height: 32px;
     background: var(--border-color);
 }
 

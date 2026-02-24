@@ -15,9 +15,10 @@ import dynamic from "next/dynamic";
 import TranscriptPanel from "@/components/TranscriptPanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAudio } from "@/hooks/useAudio";
+import { useAuth } from "@/components/AuthProvider";
 import type { WhiteboardCanvasRef } from "@/components/WhiteboardCanvas";
 import { WS_URL } from "@/lib/constants";
-import { generateId } from "@/lib/utils";
+import { generateId, base64ToArrayBuffer } from "@/lib/utils";
 
 // Dynamic import — Excalidraw cannot be SSR'd
 const WhiteboardCanvas = dynamic(
@@ -52,6 +53,9 @@ export default function Page() {
     sendCanvasSnapshot,
   } = useWebSocket();
 
+  // ── Auth hook ───────────────────────────────────────────────────────────
+  const { user, getToken } = useAuth();
+
   // ── Audio hook ──────────────────────────────────────────────────────────
 
   const {
@@ -74,15 +78,32 @@ export default function Page() {
 
   // ── Connect handler ─────────────────────────────────────────────────────
 
-  const handleConnect = useCallback(() => {
-    const url = `${WS_URL}/ws/${userId}/${sessionId}`;
-    connect(url, {
-      onAudio: (audioData: ArrayBuffer) => {
-        playAudioChunk(audioData);
-      },
-    });
-    initPlayer();
-  }, [connect, userId, sessionId, initPlayer, playAudioChunk]);
+  const handleConnect = useCallback(async () => {
+    if (!user) return; // Wait for auth
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        console.error("Missing auth token, cannot connect.");
+        return;
+      }
+      
+      const url = `${WS_URL}/ws/${user.uid}/${sessionId}?token=${token}`;
+      connect(url, {
+        onAudio: (audioData: ArrayBuffer) => {
+          playAudioChunk(audioData);
+        },
+        onInterrupt: clearPlayback, // Flush the ring buffer when ADK signals an interrupt
+        onToolAudio: (base64Data: string) => {
+          const pcm = base64ToArrayBuffer(base64Data);
+          playAudioChunk(pcm);
+        },
+      });
+      initPlayer();
+    } catch (err) {
+      console.error("Failed to acquire token or connect:", err);
+    }
+  }, [connect, user, sessionId, getToken, initPlayer, playAudioChunk]);
 
   // ── Disconnect handler ──────────────────────────────────────────────────
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import {
     LayoutDashboard,
     BookOpen,
@@ -33,28 +34,54 @@ const MOCK_NOTIFICATIONS = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { user, loading, logout } = useAuth();
     const [theme, setTheme] = useState<'dark' | 'light'>('light');
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
     const notifRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         // Enforce light mode for the mockup aesthetic
         setTheme('light');
     }, []);
 
-    // Close notification dropdown on outside click
+    // Auth Protection
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push("/login");
+        }
+    }, [user, loading, router]);
+
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
-            if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            if (notifRef.current && !notifRef.current.contains(target)) {
                 setShowNotifications(false);
             }
+            if (profileRef.current && !profileRef.current.contains(target)) {
+                setShowProfileDropdown(false);
+            }
         }
-        if (showNotifications) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
+        document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [showNotifications]);
+    }, []);
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            router.push("/");
+        } catch (error) {
+            console.error("Failed to log out", error);
+        }
+    };
+
+    // Show nothing while checking auth state so we don't flash the dashboard
+    if (loading || !user) {
+        return null;
+    }
 
     const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -187,15 +214,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             )}
                         </div>
 
-                        <Link href="/profile" className="topbar-user-card">
-                            <div className="topbar-avatar">
-                                <img src="https://i.pravatar.cc/150?u=a042581f4e29026704z" alt="User" width={36} height={36} />
-                            </div>
-                            <div className="topbar-user-info">
-                                <span className="user-name">Alex Johnson</span>
-                                <span className="user-grade">Grade 10</span>
-                            </div>
-                        </Link>
+                        <div className="topbar-user-wrapper" ref={profileRef} style={{ position: "relative" }}>
+                            <button 
+                                className="topbar-user-card" 
+                                style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "12px", padding: 0 }}
+                                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            >
+                                <div className="topbar-avatar" style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden" }}>
+                                    {user?.photoURL ? (
+                                        <img src={user.photoURL} alt={user.displayName || "User"} width={36} height={36} style={{ objectFit: "cover" }} />
+                                    ) : (
+                                        <div style={{ width: "100%", height: "100%", background: "var(--brand-main)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" }}>
+                                            {user?.email?.charAt(0).toUpperCase() || "U"}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="topbar-user-info" style={{ textAlign: "left" }}>
+                                    <span className="user-name" style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--text-main)" }}>
+                                        {user?.displayName || "Student"}
+                                    </span>
+                                    <span className="user-grade" style={{ display: "block", fontSize: "12px", color: "var(--text-sec)" }}>
+                                        {user?.email}
+                                    </span>
+                                </div>
+                            </button>
+
+                            {showProfileDropdown && (
+                                <div className="notif-dropdown" style={{ width: "220px", right: 0, padding: "8px" }}>
+                                    <Link 
+                                        href="/profile" 
+                                        className="notif-item" 
+                                        onClick={() => setShowProfileDropdown(false)}
+                                        style={{ padding: "10px", borderRadius: "8px" }}
+                                    >
+                                        My Profile
+                                    </Link>
+                                    <button 
+                                        onClick={handleLogout}
+                                        className="notif-item"
+                                        style={{ width: "100%", textAlign: "left", padding: "10px", borderRadius: "8px", color: "var(--error-color, #ef4444)" }}
+                                    >
+                                        Sign out
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
             )}

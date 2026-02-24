@@ -1,214 +1,191 @@
-import { Play, Calendar, Bell, Sparkles, Sigma, Flame, Lock, Info, Plus } from "lucide-react";
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import "../dashboard.css";
+import { useAuth } from "@/components/AuthProvider";
+import {
+    Clock,
+    BookOpen,
+    Trophy,
+    TrendingUp,
+    Play,
+    Calendar,
+    PenTool
+} from "lucide-react";
+import axios from "axios";
 
-export default function DashboardPage() {
+interface DashboardStats {
+  total_sessions: number;
+  total_hours: number;
+}
+
+interface Session {
+  id: string;
+  topic: string;
+  duration_minutes: number;
+  created_at: string;
+}
+
+export default function Dashboard() {
+    const { user, getToken } = useAuth();
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [recentSessions, setRecentSessions] = useState<Session[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+
+    useEffect(() => {
+        async function fetchDashboardData() {
+             // Let the layout handle the redirect, just don't fetch if no user
+            if (!user) return;
+
+            try {
+                const token = await getToken();
+                if (!token) return;
+
+                const headers = { Authorization: `Bearer ${token}` };
+
+                // Fetch stats and sessions in parallel
+                const [statsRes, sessionsRes] = await Promise.all([
+                    axios.get("http://localhost:8000/api/dashboard/stats", { headers }),
+                    axios.get("http://localhost:8000/api/dashboard/sessions?limit=3", { headers })
+                ]);
+
+                setStats(statsRes.data);
+                setRecentSessions(sessionsRes.data);
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error);
+            } finally {
+                setLoadingData(false);
+            }
+        }
+
+        fetchDashboardData();
+    }, [user, getToken]);
+
     return (
-        <div className="dash-page">
-            {/* ── Header Area ──────────────────────────────────── */}
-            <div className="dash-header-area">
-                <div className="dash-header-text">
-                    <h1 className="dash-title">
-                        Good morning, Alex! <Sparkles className="sparkle-icon" size={32} />
-                    </h1>
-                    <p className="dash-subtitle">Ready to continue your mastery journey?</p>
+        <div className="dash-content fade-in">
+            {/* ── Welcome Header ────────────────────────── */}
+            <div className="dash-header">
+                <div>
+                    <h1 className="dash-title">Welcome back, {user?.displayName?.split(' ')[0] || 'Student'}! 👋</h1>
+                    <p className="dash-subtitle">Ready for another session? Here is your progress so far.</p>
                 </div>
-                <div className="dash-daily-goal">
-                    <div className="goal-circle">
-                        <span>85%</span>
+                <Link href="/board" className="btn-primary" style={{ padding: "0.75rem 1.5rem", borderRadius: "12px", display: "flex", alignItems: "center", gap: "8px", fontWeight: 600, background: "var(--brand-main)", color: "white", textDecoration: "none" }}>
+                    <Play size={18} fill="currentColor" />
+                    Start New Session
+                </Link>
+            </div>
+
+            {/* ── Quick Stats Grid ──────────────────────── */}
+            <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "24px", marginBottom: "40px" }}>
+                <div className="stat-card" style={{ background: "white", padding: "24px", borderRadius: "16px", border: "1px solid var(--border)", display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                    <div className="stat-icon-box" style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(37, 99, 235, 0.1)", color: "var(--brand-main)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <BookOpen size={24} />
                     </div>
-                    <div className="goal-text">
-                        <span className="goal-label">DAILY GOAL</span>
-                        <span className="goal-status">Almost there!</span>
+                    <div>
+                        <p style={{ margin: 0, color: "var(--text-sec)", fontSize: "14px", fontWeight: 500 }}>Total Sessions</p>
+                        <h3 style={{ margin: "4px 0 0 0", fontSize: "28px", fontWeight: 700, color: "var(--text-main)" }}>
+                             {loadingData ? "..." : (stats?.total_sessions || 0)}
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="stat-card" style={{ background: "white", padding: "24px", borderRadius: "16px", border: "1px solid var(--border)", display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                    <div className="stat-icon-box" style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(16, 185, 129, 0.1)", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Clock size={24} />
+                    </div>
+                    <div>
+                        <p style={{ margin: 0, color: "var(--text-sec)", fontSize: "14px", fontWeight: 500 }}>Learning Time</p>
+                        <h3 style={{ margin: "4px 0 0 0", fontSize: "28px", fontWeight: 700, color: "var(--text-main)" }}>
+                            {loadingData ? "..." : `${stats?.total_hours || 0}h`}
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="stat-card" style={{ background: "white", padding: "24px", borderRadius: "16px", border: "1px solid var(--border)", display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                    <div className="stat-icon-box" style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Trophy size={24} />
+                    </div>
+                    <div>
+                        <p style={{ margin: 0, color: "var(--text-sec)", fontSize: "14px", fontWeight: 500 }}>Current Streak</p>
+                        <h3 style={{ margin: "4px 0 0 0", fontSize: "28px", fontWeight: 700, color: "var(--text-main)" }}>
+                            3 Days
+                        </h3>
                     </div>
                 </div>
             </div>
 
-            <div className="dash-split-layout">
-                <div className="dash-main-column">
-                    {/* ── Continue Journey Card ──────────────────────────────────── */}
-                    <div className="dash-continue-card">
-                        <div className="continue-image">
-                            <Image
-                                src="/images/math_blackboard.png"
-                                alt="Quadratic Equations"
-                                width={300}
-                                height={240}
-                                className="board-img"
-                            />
-                            <div className="continue-paused">
-                                <span className="paused-dot"></span>
-                                Paused 2h ago
-                            </div>
-                        </div>
-                        <div className="continue-content">
-                            <div className="continue-tags">
-                                <span className="tag-subject">MATH 101</span>
-                                <span className="tag-chapter">• Chapter 4</span>
-                            </div>
-                            <h2 className="continue-title">Quadratic<br />Equations</h2>
-                            <p className="continue-desc">
-                                Mastering the quadratic formula and understanding parabolas in real-world...
-                            </p>
-                            <div className="continue-actions">
-                                <Link href="/board" className="btn-resume">
-                                    <Play size={18} fill="currentColor" /> Resume Session
+            {/* ── Content Grid ──────────────────────────── */}
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px" }}>
+
+                {/* Left Column: Recent Sessions */}
+                <div className="dash-section" style={{ background: "white", borderRadius: "16px", border: "1px solid var(--border)", overflow: "hidden" }}>
+                    <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <h2 style={{ fontSize: "18px", fontWeight: 600, margin: 0, color: "var(--text-main)" }}>Recent Sessions</h2>
+                        <button style={{ background: "transparent", border: "none", color: "var(--brand-main)", fontWeight: 500, cursor: "pointer", fontSize: "14px" }}>View All</button>
+                    </div>
+
+                    <div className="sessions-list" style={{ padding: "0" }}>
+                        {loadingData ? (
+                            <div style={{ padding: "40px", textAlign: "center", color: "var(--text-sec)" }}>Loading sessions...</div>
+                        ) : recentSessions.length > 0 ? (
+                            recentSessions.map((session, i) => (
+                                <div key={session.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: i !== recentSessions.length - 1 ? "1px solid var(--border)" : "none", transition: "background 0.2s", cursor: "pointer" }} className="session-row-hover">
+                                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                                        <div style={{ width: "40px", height: "40px", borderRadius: "8px", background: "rgba(37,99,235,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand-main)" }}>
+                                            <Calendar size={18} />
+                                        </div>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "var(--text-main)" }}>{session.topic || "General Tutoring"}</h4>
+                                            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "var(--text-sec)" }}>
+                                                {new Date(session.created_at).toLocaleDateString()} • {session.duration_minutes} mins
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button style={{ padding: "6px 12px", borderRadius: "6px", background: "white", border: "1px solid var(--border)", fontSize: "13px", fontWeight: 500, color: "var(--text-main)", cursor: "pointer" }}>
+                                        Review
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div style={{ padding: "40px", textAlign: "center" }}>
+                                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--bg)", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-sec)" }}><PenTool size={20} /></div>
+                                <h4 style={{ margin: "0 0 8px 0", color: "var(--text-main)", fontSize: "16px" }}>No sessions yet</h4>
+                                <p style={{ margin: 0, color: "var(--text-sec)", fontSize: "14px", marginBottom: "20px" }}>Jump into the whiteboard to start learning!</p>
+                                <Link href="/board" className="btn-primary" style={{ display: "inline-block", padding: "8px 16px", borderRadius: "8px", background: "var(--brand-main)", color: "white", textDecoration: "none", fontSize: "14px", fontWeight: 500 }}>
+                                    Launch Whiteboard
                                 </Link>
-                                <button className="btn-info">
-                                    <Info size={18} />
-                                </button>
                             </div>
-                        </div>
+                        )}
                     </div>
+                </div>
 
-                    {/* ── Subject Mastery ──────────────────────────────────── */}
-                    <div className="dash-section dash-mastery-section">
-                        <div className="dash-section-header">
-                            <h2>Subject Mastery</h2>
-                            <Link href="/courses" className="dash-link-btn">View All</Link>
+                {/* Right Column: Suggested Topics / Next Up */}
+                <div className="dash-section" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                    <div style={{ background: "white", borderRadius: "16px", border: "1px solid var(--border)", overflow: "hidden" }}>
+                        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
+                            <h2 style={{ fontSize: "18px", fontWeight: 600, margin: 0, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "8px" }}>
+                                <TrendingUp size={18} color="var(--brand-main)" />
+                                Suggested Topics
+                            </h2>
                         </div>
-
-                        <div className="dash-mastery-grid">
-                            <div className="mastery-card">
-                                <div className="mastery-header">
-                                    <div className="mastery-icon math">
-                                        <Sigma size={20} />
-                                    </div>
-                                    <span className="mastery-percent">92%</span>
-                                </div>
-                                <h3 className="mastery-subject">Mathematics</h3>
-                                <div className="mastery-progress-track">
-                                    <div className="mastery-progress-fill math" style={{ width: '92%' }}></div>
-                                </div>
-                                <div className="mastery-trend positive">
-                                    ↗ +4% this week
-                                </div>
+                        <div style={{ padding: "16px 24px" }}>
+                            <p style={{ color: "var(--text-sec)", fontSize: "14px", margin: "0 0 16px 0", lineHeight: 1.5 }}>Based on your recent sessions, BoardyBoo suggests reviewing these areas:</p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                <span style={{ padding: "6px 12px", background: "var(--bg)", borderRadius: "20px", fontSize: "13px", color: "var(--text-main)", fontWeight: 500 }}>Calculus Derivatives</span>
+                                <span style={{ padding: "6px 12px", background: "var(--bg)", borderRadius: "20px", fontSize: "13px", color: "var(--text-main)", fontWeight: 500 }}>Photosynthesis Cycle</span>
+                                <span style={{ padding: "6px 12px", background: "var(--bg)", borderRadius: "20px", fontSize: "13px", color: "var(--text-main)", fontWeight: 500 }}>Spanish Verbs</span>
                             </div>
-
-                            <div className="mastery-card">
-                                <div className="mastery-header">
-                                    <div className="mastery-icon science">
-                                        <Flame size={20} />
-                                    </div>
-                                    <span className="mastery-percent">78%</span>
-                                </div>
-                                <h3 className="mastery-subject">Science</h3>
-                                <div className="mastery-progress-track">
-                                    <div className="mastery-progress-fill science" style={{ width: '78%' }}></div>
-                                </div>
-                                <div className="mastery-trend stable">
-                                    — Stable
-                                </div>
-                            </div>
-
-                            <div className="mastery-card">
-                                <div className="mastery-header">
-                                    <div className="mastery-icon history">
-                                        <Lock size={20} />
-                                    </div>
-                                    <span className="mastery-percent">88%</span>
-                                </div>
-                                <h3 className="mastery-subject">History</h3>
-                                <div className="mastery-progress-track">
-                                    <div className="mastery-progress-fill history" style={{ width: '88%' }}></div>
-                                </div>
-                                <div className="mastery-trend positive">
-                                    ↗ +12% this week
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── Recent Achievements ──────────────────────────────────── */}
-                    <div className="dash-achievements-banner">
-                        <div className="achievements-icon-main">
-                            <div className="award-badge">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15l-3 4-2-1-1-2 4-3" /><path d="M12 15l3 4 2-1 1-2-4-3" /><circle cx="12" cy="8" r="5" fill="#FFD166" /></svg>
-                            </div>
-                        </div>
-                        <div className="achievements-text">
-                            <h3>Recent Achievements</h3>
-                            <p>You unlocked 2 new badges this week!</p>
-                        </div>
-                        <div className="achievements-badges">
-                            <div className="circle-badge sigma"><Sigma size={18} /></div>
-                            <div className="circle-badge flame"><Flame size={18} /></div>
-                            <div className="circle-badge locked"><Lock size={18} /></div>
                         </div>
                     </div>
                 </div>
 
-                <div className="dash-side-column">
-                    {/* ── Upcoming Sessions ──────────────────────────────── */}
-                    <div className="dash-sidebar-card upcoming-card">
-                        <div className="sidebar-card-header">
-                            <h2>Upcoming Sessions</h2>
-                            <button className="icon-btn"><Calendar size={18} /></button>
-                        </div>
-                        <div className="upcoming-list">
-                            <div className="upcoming-item">
-                                <div className="upcoming-avatar">
-                                    <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="Tutor" width={40} height={40} className="avatar-img" />
-                                    <div className="status-dot online"></div>
-                                </div>
-                                <div className="upcoming-info">
-                                    <h4>Calculus Re...</h4>
-                                    <p>w/ Mr. Davis</p>
-                                </div>
-                                <div className="upcoming-time">
-                                    <span className="time">10:00</span>
-                                    <span className="ampm">AM</span>
-                                </div>
-                            </div>
-
-                            <div className="upcoming-item">
-                                <div className="upcoming-avatar">
-                                    <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Tutor" width={40} height={40} className="avatar-img" />
-                                </div>
-                                <div className="upcoming-info">
-                                    <h4>Chemistry L...</h4>
-                                    <p>w/ Dr. Lee</p>
-                                </div>
-                                <div className="upcoming-time">
-                                    <span className="time">02:00</span>
-                                    <span className="ampm">PM</span>
-                                </div>
-                            </div>
-                        </div>
-                        <button className="btn-book-session">
-                            <Plus size={16} /> Book a Session
-                        </button>
-                    </div>
-
-                    {/* ── Daily AI Tip ──────────────────────────────── */}
-                    <div className="dash-sidebar-card daily-tip-card">
-                        <div className="tip-header">
-                            <div className="tip-icon-container">
-                                <Sparkles size={16} />
-                            </div>
-                            <span className="tip-label">DAILY AI TIP</span>
-                        </div>
-                        <h3 className="tip-title">Solving Complex Equations</h3>
-                        <p className="tip-text">
-                            Try breaking down complex equations into smaller, manageable steps. Isolate the variable one operation at a time to avoid sign errors!
-                        </p>
-                        <button className="btn-save-notes">Save to Notes</button>
-                    </div>
-
-                    {/* ── Next Test ──────────────────────────────── */}
-                    <div className="dash-sidebar-card next-test-card">
-                        <div className="next-test-info">
-                            <span className="test-label">NEXT TEST</span>
-                            <h3 className="test-title">Physics Midterm</h3>
-                            <p className="test-countdown">in 3 days</p>
-                        </div>
-                        <div className="test-bell">
-                            <Bell size={20} />
-                        </div>
-                    </div>
-                </div>
             </div>
+            
+            <style jsx>{`
+                .session-row-hover:hover {
+                    background: var(--bg) !important;
+                }
+            `}</style>
         </div>
     );
 }

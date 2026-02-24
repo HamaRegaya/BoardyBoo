@@ -37,6 +37,8 @@ export function useWebSocket() {
 
   // Store callbacks in refs so the message handler always sees the latest
   const onAudioRef = useRef<((pcm: ArrayBuffer) => void) | undefined>(undefined);
+  const onInterruptRef = useRef<(() => void) | undefined>(undefined);
+  const onToolAudioRef = useRef<((base64: string, mimeType: string) => void) | undefined>(undefined);
 
   // ── Connect ──────────────────────────────────────────────────────────────
 
@@ -45,6 +47,8 @@ export function useWebSocket() {
     setStatus("connecting");
 
     onAudioRef.current = opts?.onAudio;
+    onInterruptRef.current = opts?.onInterrupt;
+    onToolAudioRef.current = opts?.onToolAudio;
 
     const ws = new WebSocket(url);
     wsRef.current = ws;
@@ -276,6 +280,11 @@ export function useWebSocket() {
               console.log("[Canvas CMD]", cmd.tool, cmd.action, cmd.elements.length, "elements");
               setCanvasCommands((prev) => [...prev, cmd]);
             }
+            // Play optional tool-supplied audio (e.g. "image generated successfully")
+            if (resp?.audio_b64 && typeof resp.audio_b64 === "string") {
+              const mime = (resp.audio_mime as string) || "audio/pcm;rate=16000";
+              onToolAudioRef.current?.(resp.audio_b64, mime);
+            }
           }
         }
       }
@@ -285,7 +294,9 @@ export function useWebSocket() {
         currentOutputIdRef.current = null;
       }
       if (event.interrupted) {
+        console.log("[ADK] User interrupted agent!");
         currentOutputIdRef.current = null;
+        onInterruptRef.current?.();
       }
     },
     []

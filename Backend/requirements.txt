@@ -30,3 +30,5 @@ mcp==1.26.0
 
 # Image processing
 pillow==12.1.1
+
+firebase_admin

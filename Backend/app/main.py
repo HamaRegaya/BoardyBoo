@@ -29,9 +29,11 @@ from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
+from firebase_admin import auth as firebase_auth
 
 from app.agents.tutor_agent import build_tutor_agent
 from app.config import settings
+from app.routers import users, dashboard
 from app.utils.errors import (
     ErrorCategory,
     ErrorPayload,
@@ -84,6 +86,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(users.router)
+app.include_router(dashboard.router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -123,6 +128,26 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     - JSON error payloads (type=error)
     """
     await websocket.accept()
+
+    # Secure WebSocket connection using Firebase Token
+    token = websocket.query_params.get("token")
+    if not token:
+        logger.warning("WS connection rejected: Missing token for user %s", user_id)
+        await websocket.close(code=1008, reason="Missing authentication token")
+        return
+
+    try:
+        decoded_token = firebase_auth.verify_id_token(token)
+        token_uid = decoded_token.get("uid")
+        if token_uid != user_id:
+            logger.warning("WS connection rejected: Token UID %s != %s", token_uid, user_id)
+            await websocket.close(code=1008, reason="Unauthorized user")
+            return
+    except Exception as e:
+        logger.warning("WS connection rejected: Invalid token: %s", e)
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+
     logger.info("WS connected: user=%s session=%s", user_id, session_id)
 
     assert runner is not None and session_service is not None
@@ -192,12 +217,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                     # Plain text from the student
                     text = json_msg.get("text", "")
                     if text:
-                        live_request_queue.send_content(
-                            types.Content(
-                                role="user",
-                                parts=[types.Part.from_text(text=text)],
-                            )
-                        )
+                        live_request_queue.send_realtime_text(text)
 
                 elif msg_type in ("image", "canvas"):
                     # JPEG image or canvas snapshot
@@ -212,16 +232,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                 elif msg_type == "canvas_elements":
                     # Excalidraw element data sent as text so the agent can reason
                     elements = json_msg.get("elements", [])
-                    live_request_queue.send_content(
-                        types.Content(
-                            role="user",
-                            parts=[
-                                types.Part.from_text(
-                                    text=f"[Canvas Elements JSON]\n{json.dumps(elements, indent=2)}"
-                                )
-                            ],
-                        )
-                    )
+                    canvas_text = f"[Canvas Elements JSON]\n{json.dumps(elements, indent=2)}"
+                    live_request_queue.send_realtime_text(canvas_text)
 
                 elif msg_type == "activity_start":
                     live_request_queue.send_activity_start()
@@ -295,7 +307,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                     # re-inject it before sending to the client.
                     if event_dict.get("content") and event_dict["content"].get("parts"):
                         for part in event_dict["content"]["parts"]:
-                            resp = part.get("functionResponse")
+                            resp = part.get("functionResponse") or part.get("function_response")
                             if resp and resp.get("response"):
                                 r_data = resp["response"]
                                 if isinstance(r_data, dict) and "deferred_file_id" in r_data:
@@ -304,6 +316,21 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                                     if f_id in image_bridge:
                                         # Inject the files dict for the frontend to pick up
                                         r_data["files"] = {f_id: image_bridge[f_id]}
+                                        # Ensure elements exist so the frontend can render (ADK may omit them)
+                                        if not r_data.get("elements"):
+                                            r_data["elements"] = [
+                                                {
+                                                    "type": "image",
+                                                    "fileId": f_id,
+                                                    "x": 100,
+                                                    "y": 100,
+                                                    "width": 400,
+                                                    "height": 300,
+                                                    "status": "saved",
+                                                }
+                                            ]
+                                            r_data.setdefault("tool", "generate_and_show_image")
+                                            r_data.setdefault("action", "add")
                                         logger.info("Re-injected deferred image data for fileId: %s", f_id)
 
                     event_json = json.dumps(event_dict)

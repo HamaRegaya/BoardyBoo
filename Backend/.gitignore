@@ -20,3 +20,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Firebase
+boardyboo-firebase-adminsdk-fbsvc-93f523d8d4.json

@@ -7,11 +7,12 @@ a distinct voice (per Part 5 multi-agent voice config pattern).
 Agent tree
 ----------
 tutor_agent (native audio — "Aoede", warm & encouraging)
-├── canvas_agent  — draws on the whiteboard
 ├── planner_agent — creates study plans
 ├── calendar_agent — schedules sessions
-├── media_agent   — generates images / audio via MCP genmedia
 └── progress_agent — quizzes, mastery tracking, email reports
+
+Canvas and image tools (write_text_on_canvas, draw_diagram, generate_and_show_image, etc.)
+are on the tutor agent directly.
 """
 
 from __future__ import annotations
@@ -19,14 +20,13 @@ from __future__ import annotations
 import logging
 
 from google.adk.agents import Agent
-
 from app.agents.calendar_agent import build_calendar_agent
-# from app.agents.media_agent import build_media_agent
 from app.agents.planner_agent import build_planner_agent
 from app.agents.progress_agent import build_progress_agent
 from app.config import settings
 from app.tools.canvas_tools import canvas_tools
 from app.tools.firestore_tools import get_progress, save_session_notes
+from app.tools.media_tools import MediaTools
 from app.tools.storage_tools import upload_canvas_snapshot
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ You also have specialised assistant agents.  **Transfer** to them when needed:
 |-------|------------------|
 | **planner_agent** | Creating or reviewing study plans and learning goals. |
 | **calendar_agent** | Scheduling, rescheduling, or viewing study sessions. |
-| **media_agent** | Generating educational images or pronunciation audio. |
+
 | **progress_agent** | Running quizzes, updating mastery scores, sending progress emails. |
 
 ## Your direct tools
@@ -72,6 +72,8 @@ You also have specialised assistant agents.  **Transfer** to them when needed:
 - `get_progress` — check what mastery level the student has before teaching.
 - `save_session_notes` — save notes at the end of a session.
 - `upload_canvas_snapshot` — save a snapshot of the current canvas state.
+- `generate_and_show_image` — generate an educational image and show it on the whiteboard.
+
 
 ## Teaching approach
 1. **Ask** what the student wants to learn or what they're struggling with.
@@ -114,11 +116,12 @@ canvas_agent — draw it yourself.
 def build_tutor_agent() -> Agent:
     """Construct the complete agent tree with per-agent voice configs."""
 
-    # Sub-agents (canvas tools are on the root tutor agent directly)
+    # Sub-agents; media is a direct tool on the tutor, not a sub-agent
     planner = build_planner_agent()
     calendar = build_calendar_agent()
-    # media = build_media_agent()
     progress = build_progress_agent()
+    media_tools = MediaTools()
+    generate_and_show_image = media_tools.generate_and_show_image
 
     # Root agent — uses model string; speech_config is set via RunConfig
     root = Agent(
@@ -130,8 +133,9 @@ def build_tutor_agent() -> Agent:
             get_progress,
             save_session_notes,
             upload_canvas_snapshot,
+            generate_and_show_image,
         ],
-        sub_agents=[planner, calendar, media, progress],
+        sub_agents=[planner, calendar, progress],
     )
 
     logger.info(

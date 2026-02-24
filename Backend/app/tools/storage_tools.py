@@ -54,7 +54,46 @@ def upload_canvas_snapshot(
     """
     import base64
 
-    image_data = base64.b64decode(image_bytes_base64)
+    # Strip optional data-URL prefix (e.g. "data:image/jpeg;base64,")
+    if "," in image_bytes_base64:
+        image_bytes_base64 = image_bytes_base64.split(",", 1)[1]
+
+    # Strip whitespace that may have been inserted
+    image_bytes_base64 = image_bytes_base64.strip()
+
+    # Reject obviously invalid / hallucinated data (real snapshots are large)
+    if len(image_bytes_base64) < 100:
+        logger.warning(
+            "upload_canvas_snapshot: base64 payload too small (%d chars) — "
+            "likely not a real image. Skipping upload.",
+            len(image_bytes_base64),
+        )
+        return {
+            "status": "error",
+            "message": (
+                "The image data provided is too small to be a valid canvas "
+                "snapshot. This tool should only be called with actual canvas "
+                "image data captured from the student's whiteboard."
+            ),
+        }
+
+    # Pad to a multiple of 4 if needed (some encoders omit trailing '=')
+    padding_needed = len(image_bytes_base64) % 4
+    if padding_needed:
+        image_bytes_base64 += "=" * (4 - padding_needed)
+
+    try:
+        image_data = base64.b64decode(image_bytes_base64)
+    except Exception as exc:
+        logger.warning("upload_canvas_snapshot: invalid base64 — %s", exc)
+        return {
+            "status": "error",
+            "message": (
+                "The image data is not valid base64. Please capture a real "
+                "canvas snapshot before uploading."
+            ),
+        }
+
     blob_name = f"snapshots/{user_id}/{session_id}/{label}_{uuid.uuid4().hex[:8]}.jpeg"
 
     bucket = _get_bucket()
@@ -88,7 +127,32 @@ def upload_generated_image(
     """
     import base64
 
-    image_data = base64.b64decode(image_bytes_base64)
+    # Strip optional data-URL prefix
+    if "," in image_bytes_base64:
+        image_bytes_base64 = image_bytes_base64.split(",", 1)[1]
+
+    image_bytes_base64 = image_bytes_base64.strip()
+
+    if len(image_bytes_base64) < 100:
+        return {
+            "status": "error",
+            "message": "The image data is too small to be valid.",
+        }
+
+    # Pad to multiple of 4 if needed
+    padding_needed = len(image_bytes_base64) % 4
+    if padding_needed:
+        image_bytes_base64 += "=" * (4 - padding_needed)
+
+    try:
+        image_data = base64.b64decode(image_bytes_base64)
+    except Exception as exc:
+        logger.warning("upload_generated_image: invalid base64 — %s", exc)
+        return {
+            "status": "error",
+            "message": "The image data is not valid base64.",
+        }
+
     ext = content_type.split("/")[-1]
     blob_name = f"generated/{user_id}/{filename}_{uuid.uuid4().hex[:8]}.{ext}"
 

@@ -18,6 +18,34 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 
+# ── Canvas Element Bridge ─────────────────────────────────────────────────────
+# Stores full element payloads so tool responses sent back to the Gemini Live
+# model stay small.  main.py re-injects the element data before forwarding
+# events to the client WebSocket.  This prevents 1008 policy-violation errors
+# caused by large function-response payloads in the Live streaming session.
+
+canvas_bridge: Dict[str, Dict[str, Any]] = {}
+
+
+def _defer_elements(tool_name: str, action: str, elements: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Store elements in the bridge and return a slim, model-safe response."""
+    import uuid as _uuid_mod
+
+    cmd_id = f"cmd-{_uuid_mod.uuid4().hex[:12]}"
+    canvas_bridge[cmd_id] = {
+        "tool": tool_name,
+        "action": action,
+        "elements": elements,
+    }
+    return {
+        "status": "ok",
+        "tool": tool_name,
+        "action": action,
+        "element_count": len(elements),
+        "deferred_canvas_id": cmd_id,
+    }
+
+
 # ── Tool functions ────────────────────────────────────────────────────────────
 
 
@@ -46,14 +74,9 @@ def draw_on_canvas(
     if action not in ("add", "replace", "clear"):
         return {"status": "error", "message": f"Unknown action: {action}"}
 
-    payload = {
-        "tool": "draw_on_canvas",
-        "action": action,
-        "elements": elements if action != "clear" else [],
-        "element_count": len(elements) if action != "clear" else 0,
-    }
-    logger.info("draw_on_canvas: action=%s elements=%d", action, len(elements))
-    return {"status": "ok", **payload}
+    elems = elements if action != "clear" else []
+    logger.info("draw_on_canvas: action=%s elements=%d", action, len(elems))
+    return _defer_elements("draw_on_canvas", action, elems)
 
 
 def write_text_on_canvas(
@@ -88,12 +111,7 @@ def write_text_on_canvas(
         "fontFamily": 1,  # Virgil (hand-drawn)
     }
     logger.info("write_text_on_canvas at (%.0f, %.0f): %s", x, y, text[:60])
-    return {
-        "status": "ok",
-        "tool": "write_text_on_canvas",
-        "action": "add",
-        "elements": [element],
-    }
+    return _defer_elements("write_text_on_canvas", "add", [element])
 
 
 def draw_diagram(
@@ -237,12 +255,7 @@ def draw_diagram(
         "draw_diagram: type=%s title=%s items=%d elements=%d",
         diagram_type, title, len(items), len(elements),
     )
-    return {
-        "status": "ok",
-        "tool": "draw_diagram",
-        "action": "add",
-        "elements": elements,
-    }
+    return _defer_elements("draw_diagram", "add", elements)
 
 
 def highlight_area(
@@ -275,12 +288,7 @@ def highlight_area(
         "fillStyle": "solid",
         "opacity": 40,
     }
-    return {
-        "status": "ok",
-        "tool": "highlight_area",
-        "action": "add",
-        "elements": [element],
-    }
+    return _defer_elements("highlight_area", "add", [element])
 
 
 
@@ -356,12 +364,7 @@ async def add_image_to_canvas(
 
 def clear_canvas() -> Dict[str, Any]:
     """Clear everything from the whiteboard canvas."""
-    return {
-        "status": "ok",
-        "tool": "clear_canvas",
-        "action": "clear",
-        "elements": [],
-    }
+    return _defer_elements("clear_canvas", "clear", [])
 
 
 # ── Export FunctionTool wrappers ──────────────────────────────────────────────

@@ -250,111 +250,189 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
 
         except WebSocketDisconnect:
             logger.info("WS disconnected (upstream): user=%s", user_id)
+        except RuntimeError as exc:
+            # Starlette raises RuntimeError when WS is already disconnected
+            if "disconnect" in str(exc).lower():
+                logger.info("WS already disconnected (upstream): user=%s", user_id)
+            else:
+                logger.error("Upstream runtime error: %s", exc, exc_info=True)
         except Exception as exc:
             logger.error("Upstream error: %s", exc, exc_info=True)
 
     # ── Downstream: run_live() Events → WebSocket ─────────────────────────
 
+    MAX_LIVE_RETRIES = 3
+
+    def _is_transient_live_error(exc: BaseException) -> bool:
+        """Return True if the Gemini Live WS error is retryable."""
+        msg = str(exc)
+        # 1006 = abnormal closure
+        # 1007 = invalid argument (stale session replay)
+        # 1008 = policy violation (payload too large)
+        # 1011 = internal server error / deadline expired
+        return any(code in msg for code in ("1006", "1007", "1008", "1011"))
+
+    # Mutable holder so the retry loop can swap the session id
+    current_session_id = session_id
+
     async def downstream_task():
-        """Stream ADK events back to the client WebSocket."""
-        try:
-            async for event in runner.run_live(
-                user_id=user_id,
-                session_id=session_id,
-                live_request_queue=live_request_queue,
-                run_config=run_config,
-            ):
-                # ── Check for ADK-level errors first ──────────────────────
-                if event.error_code:
-                    error_payload, should_break = classify_adk_error(
-                        event.error_code,
-                        getattr(event, "error_message", None),
-                    )
-                    await _send_json(websocket, error_payload.to_ws_json())
-                    logger.warning(
-                        "ADK error: code=%s severity=%s break=%s",
-                        event.error_code,
-                        error_payload.severity,
-                        should_break,
-                    )
-                    if should_break:
+        """Stream ADK events back to the client WebSocket.
+
+        Wraps ``run_live`` in a retry loop so transient Gemini Live
+        connection drops are automatically recovered instead of killing
+        the whole session.  On reconnect we create a **fresh** ADK session
+        because the old conversation history can contain data that the new
+        Gemini Live connection rejects (→ 1007).
+        """
+        nonlocal current_session_id
+
+        for attempt in range(MAX_LIVE_RETRIES + 1):
+            try:
+                async for event in runner.run_live(
+                    user_id=user_id,
+                    session_id=current_session_id,
+                    live_request_queue=live_request_queue,
+                    run_config=run_config,
+                ):
+                    # ── Check for ADK-level errors first ──────────────
+                    if event.error_code:
+                        error_payload, should_break = classify_adk_error(
+                            event.error_code,
+                            getattr(event, "error_message", None),
+                        )
+                        await _send_json(websocket, error_payload.to_ws_json())
+                        logger.warning(
+                            "ADK error: code=%s severity=%s break=%s",
+                            event.error_code,
+                            error_payload.severity,
+                            should_break,
+                        )
+                        if should_break:
+                            break
+                        continue
+
+                    # ── Log function calls/responses for debugging ────
+                    if event.content and event.content.parts:
+                        for _p in event.content.parts:
+                            if _p.function_call:
+                                logger.info(
+                                    "\u25b6 FunctionCall: %s args=%s",
+                                    _p.function_call.name,
+                                    _p.function_call.args,
+                                )
+                            if _p.function_response:
+                                logger.info(
+                                    "\u25c0 FunctionResponse: %s -> %s",
+                                    _p.function_response.name,
+                                    json.dumps(_p.function_response.response)[:300],
+                                )
+
+                    # ── Forward the full event JSON to the client ─────
+                    try:
+                        event_dict = event.model_dump(
+                            mode='json', exclude_none=True, by_alias=True,
+                        )
+
+                        # ── Data Bridge Re-injection ──────────────────
+                        if event_dict.get("content") and event_dict["content"].get("parts"):
+                            for part in event_dict["content"]["parts"]:
+                                resp = part.get("functionResponse") or part.get("function_response")
+                                if resp and resp.get("response"):
+                                    r_data = resp["response"]
+                                    # Re-inject deferred image data
+                                    if isinstance(r_data, dict) and "deferred_file_id" in r_data:
+                                        f_id = r_data["deferred_file_id"]
+                                        from app.tools.canvas_tools import image_bridge
+                                        if f_id in image_bridge:
+                                            r_data["files"] = {f_id: image_bridge.pop(f_id)}
+                                            if not r_data.get("elements"):
+                                                r_data["elements"] = [
+                                                    {
+                                                        "type": "image",
+                                                        "fileId": f_id,
+                                                        "x": 100,
+                                                        "y": 100,
+                                                        "width": 400,
+                                                        "height": 300,
+                                                        "status": "saved",
+                                                    }
+                                                ]
+                                                r_data.setdefault("tool", "generate_and_show_image")
+                                                r_data.setdefault("action", "add")
+                                            logger.info("Re-injected deferred image data for fileId: %s", f_id)
+                                    # Re-inject deferred canvas element data
+                                    if isinstance(r_data, dict) and "deferred_canvas_id" in r_data:
+                                        c_id = r_data["deferred_canvas_id"]
+                                        from app.tools.canvas_tools import canvas_bridge
+                                        if c_id in canvas_bridge:
+                                            bridge_data = canvas_bridge.pop(c_id)
+                                            r_data["elements"] = bridge_data["elements"]
+                                            logger.info(
+                                                "Re-injected canvas elements for cmd: %s (%d elements)",
+                                                c_id, len(bridge_data["elements"]),
+                                            )
+
+                        event_json = json.dumps(event_dict)
+                        await websocket.send_text(event_json)
+                    except Exception as send_exc:
+                        logger.error("Failed to send event: %s", send_exc)
                         break
+
+                # Generator finished cleanly — no retry needed
+                return
+
+            except Exception as exc:
+                if _is_transient_live_error(exc) and attempt < MAX_LIVE_RETRIES:
+                    delay = 1.0 * (attempt + 1)
+                    logger.warning(
+                        "Gemini Live connection lost (attempt %d/%d): %s "
+                        "— reconnecting in %.0fs…",
+                        attempt + 1, MAX_LIVE_RETRIES, exc, delay,
+                    )
+                    await _send_json(websocket, {
+                        "type": "info",
+                        "code": "RECONNECTING",
+                        "message": "Connection to AI was briefly interrupted. Reconnecting…",
+                        "attempt": attempt + 1,
+                        "max_attempts": MAX_LIVE_RETRIES,
+                    })
+
+                    # Create a fresh ADK session so the reconnect doesn't
+                    # replay stale history that the model would reject (1007).
+                    try:
+                        new_sid = f"{session_id}-r{attempt + 1}"
+                        await session_service.create_session(
+                            app_name="magic-whiteboard-tutor",
+                            user_id=user_id,
+                            session_id=new_sid,
+                        )
+                        current_session_id = new_sid
+                        logger.info(
+                            "Created fresh ADK session %s for reconnect attempt %d",
+                            new_sid, attempt + 1,
+                        )
+                    except Exception as sess_exc:
+                        logger.error("Failed to create fresh session: %s", sess_exc)
+
+                    await asyncio.sleep(delay)
                     continue
 
-                # ── Log function calls/responses for debugging ─────────
-                if event.content and event.content.parts:
-                    for _p in event.content.parts:
-                        if _p.function_call:
-                            logger.info(
-                                "\u25b6 FunctionCall: %s args=%s",
-                                _p.function_call.name,
-                                _p.function_call.args,
-                            )
-                        if _p.function_response:
-                            logger.info(
-                                "\u25c0 FunctionResponse: %s -> %s",
-                                _p.function_response.name,
-                                json.dumps(_p.function_response.response)[:300],
-                            )
-
-                # ── Forward the full event JSON to the client ─────────────
+                # Non-transient or out of retries — inform client and exit
+                logger.error("Downstream error: %s", exc, exc_info=True)
                 try:
-                    # Using mode='json' ensures bytes (audio) are base64-encoded.
-                    event_dict = event.model_dump(mode='json', exclude_none=True, by_alias=True)
-
-                    # ── Data Bridge Re-injection ────────────────────────────
-                    # If this event contains a tool response with deferred data,
-                    # re-inject it before sending to the client.
-                    if event_dict.get("content") and event_dict["content"].get("parts"):
-                        for part in event_dict["content"]["parts"]:
-                            resp = part.get("functionResponse") or part.get("function_response")
-                            if resp and resp.get("response"):
-                                r_data = resp["response"]
-                                if isinstance(r_data, dict) and "deferred_file_id" in r_data:
-                                    f_id = r_data["deferred_file_id"]
-                                    from app.tools.canvas_tools import image_bridge
-                                    if f_id in image_bridge:
-                                        # Inject the files dict for the frontend to pick up
-                                        r_data["files"] = {f_id: image_bridge[f_id]}
-                                        # Ensure elements exist so the frontend can render (ADK may omit them)
-                                        if not r_data.get("elements"):
-                                            r_data["elements"] = [
-                                                {
-                                                    "type": "image",
-                                                    "fileId": f_id,
-                                                    "x": 100,
-                                                    "y": 100,
-                                                    "width": 400,
-                                                    "height": 300,
-                                                    "status": "saved",
-                                                }
-                                            ]
-                                            r_data.setdefault("tool", "generate_and_show_image")
-                                            r_data.setdefault("action", "add")
-                                        logger.info("Re-injected deferred image data for fileId: %s", f_id)
-
-                    event_json = json.dumps(event_dict)
-                    await websocket.send_text(event_json)
-                except Exception as send_exc:
-                    logger.error("Failed to send event: %s", send_exc)
-                    break
-
-        except Exception as exc:
-            logger.error("Downstream error: %s", exc, exc_info=True)
-            # Attempt to inform the client
-            try:
-                await _send_json(
-                    websocket,
-                    ErrorPayload(
-                        category=ErrorCategory.INTERNAL,
-                        severity=ErrorSeverity.FATAL,
-                        code="STREAM_ERROR",
-                        message="Streaming session encountered an error.",
-                        detail=str(exc),
-                    ).to_ws_json(),
-                )
-            except Exception:
-                pass
+                    await _send_json(
+                        websocket,
+                        ErrorPayload(
+                            category=ErrorCategory.INTERNAL,
+                            severity=ErrorSeverity.FATAL,
+                            code="STREAM_ERROR",
+                            message="Streaming session encountered an error.",
+                            detail=str(exc),
+                        ).to_ws_json(),
+                    )
+                except Exception:
+                    pass
+                return
 
     # ── Run both tasks concurrently, clean up on exit ─────────────────────
 

@@ -225,7 +225,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
             };
           });
 
-          // Cache each element's full points / opacity for interpolation
+          // Cache each element's full data for interpolation
           const fullData = new Map<
             string,
             { points?: number[][]; opacity: number }

@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import "@excalidraw/excalidraw/index.css";
-import type { CanvasCommand } from "@/hooks/useWebSocket";
+import type { CanvasCommand, AnimationGroup } from "@/hooks/useWebSocket";
 
 export interface WhiteboardCanvasRef {
   getSnapshot: () => Promise<string | null>;
@@ -157,6 +157,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
     }, []);
 
     // ── Apply canvas commands when they arrive or API becomes ready ───────
+    // For commands with animation metadata, elements are drawn smoothly
+    // using requestAnimationFrame — lines grow progressively and text
+    // fades in, creating an immersive "tutor is drawing" effect.
+
+    const animFrameRef = useRef<number>(0);
 
     useEffect(() => {
       const api = apiRef.current;
@@ -172,7 +177,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
       for (let i = lastAppliedRef.current; i < canvasCommands.length; i++) {
         const cmd = canvasCommands[i];
         console.log(
-          `[Canvas] Applying cmd #${i}: tool=${cmd.tool} action=${cmd.action} elements=${cmd.elements?.length}`
+          `[Canvas] Applying cmd #${i}: tool=${cmd.tool} action=${cmd.action} elements=${cmd.elements?.length} animated=${!!cmd.animation}`
         );
 
         if (cmd.action === "clear") {
@@ -198,6 +203,157 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
           }
         }
 
+        // ── Animated rendering path (smooth via requestAnimationFrame) ─
+        if (cmd.animation && cmd.animation.length > 0) {
+          const groups = cmd.animation;
+          const allConverted = toExcalidrawElements(cmd.elements);
+          const baseElements = [...api.getSceneElements()];
+
+          // Scroll to frame the full plot area before drawing starts
+          try {
+            api.scrollToContent(allConverted, { fitToContent: true, animate: true, duration: 300 });
+          } catch { /* ignore */ }
+
+          // Pre-compute per-group draw duration from delay gaps
+          const groupMeta = groups.map((g, idx) => {
+            const nextDelay =
+              idx < groups.length - 1 ? groups[idx + 1].delay : g.delay + 400;
+            return {
+              ...g,
+              drawDuration: Math.max(nextDelay - g.delay, 120),
+              elements: allConverted.slice(g.start, g.end),
+            };
+          });
+
+          // Cache each element's full points / opacity for interpolation
+          const fullData = new Map<
+            string,
+            { points?: number[][]; opacity: number }
+          >();
+          for (const gm of groupMeta) {
+            for (const el of gm.elements) {
+              fullData.set(el.id, {
+                points: el.points
+                  ? el.points.map((p: number[]) => [...p])
+                  : undefined,
+                opacity: el.opacity ?? 100,
+              });
+            }
+          }
+
+          const startTs = performance.now();
+          let frame = 0;
+
+          const tick = (now: number) => {
+            const elapsed = now - startTs;
+            const animated: any[] = [];
+            let allDone = true;
+            frame++;
+
+            for (const gm of groupMeta) {
+              if (elapsed < gm.delay) {
+                allDone = false;
+                continue; // group hasn't started yet
+              }
+
+              const rawT = Math.min(
+                (elapsed - gm.delay) / gm.drawDuration,
+                1.0
+              );
+              // Ease-out cubic for a natural deceleration feel
+              const t = 1 - Math.pow(1 - rawT, 3);
+
+              for (const el of gm.elements) {
+                const fd = fullData.get(el.id)!;
+
+                if (
+                  (el.type === "line" || el.type === "arrow") &&
+                  fd.points &&
+                  fd.points.length >= 2
+                ) {
+                  // ── Smooth line growth ──
+                  const pts = fd.points;
+                  let partial: number[][];
+
+                  if (pts.length === 2) {
+                    // Two-point line → interpolate endpoint
+                    const [sx, sy] = pts[0];
+                    const [ex, ey] = pts[1];
+                    partial = [
+                      [sx, sy],
+                      [sx + (ex - sx) * t, sy + (ey - sy) * t],
+                    ];
+                  } else {
+                    // Multi-point polyline → reveal + interpolate tip
+                    const segs = pts.length - 1;
+                    const pos = t * segs;
+                    const idx = Math.floor(pos);
+                    const frac = pos - idx;
+
+                    partial = pts.slice(0, idx + 1);
+                    if (frac > 0 && idx + 1 < pts.length) {
+                      const a = pts[idx];
+                      const b = pts[idx + 1];
+                      partial.push([
+                        a[0] + (b[0] - a[0]) * frac,
+                        a[1] + (b[1] - a[1]) * frac,
+                      ]);
+                    }
+                  }
+
+                  const tip = partial[partial.length - 1] ?? [0, 0];
+                  animated.push({
+                    ...el,
+                    points: partial,
+                    width: tip[0],
+                    height: tip[1],
+                    version: (el.version ?? 1) + frame,
+                    versionNonce: Math.floor(Math.random() * 1e9),
+                  });
+                } else {
+                  // ── Non-line element → opacity fade-in ──
+                  animated.push({
+                    ...el,
+                    opacity: Math.round(fd.opacity * t),
+                    version: (el.version ?? 1) + frame,
+                    versionNonce: Math.floor(Math.random() * 1e9),
+                  });
+                }
+              }
+
+              if (rawT < 1.0) allDone = false;
+            }
+
+            api.updateScene({ elements: [...baseElements, ...animated] });
+
+            if (!allDone) {
+              animFrameRef.current = requestAnimationFrame(tick);
+            } else {
+              // Ensure pixel-perfect final state
+              const finalEls = allConverted.map((el: any) => ({
+                ...el,
+                version: (el.version ?? 1) + frame + 1,
+                versionNonce: Math.floor(Math.random() * 1e9),
+              }));
+              api.updateScene({
+                elements: [...baseElements, ...finalEls],
+              });
+              console.log(
+                `[Canvas Anim] Complete in ${Math.round(elapsed)}ms, total elements: ${api.getSceneElements().length}`
+              );
+            }
+          };
+
+          animFrameRef.current = requestAnimationFrame(tick);
+          console.log(
+            `[Canvas] Started smooth animation: ${groupMeta.length} groups, ~${
+              groups[groups.length - 1]?.delay + 400
+            }ms`
+          );
+          continue; // skip non-animated path
+        }
+
+        // ── Standard (non-animated) rendering path ───────────────────
         const newElements = toExcalidrawElements(cmd.elements);
 
         if (cmd.action === "replace") {
@@ -221,6 +377,14 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
         );
       }
       lastAppliedRef.current = canvasCommands.length;
+
+      // Cleanup animation frame on unmount or dependency change
+      return () => {
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = 0;
+        }
+      };
     }, [canvasCommands, ready, toExcalidrawElements]);
 
     // ── Get canvas snapshot as base64 JPEG ────────────────────────────────

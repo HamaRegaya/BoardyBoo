@@ -367,9 +367,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                                         if c_id in canvas_bridge:
                                             bridge_data = canvas_bridge.pop(c_id)
                                             r_data["elements"] = bridge_data["elements"]
+                                            if "animation" in bridge_data:
+                                                r_data["animation"] = bridge_data["animation"]
                                             logger.info(
-                                                "Re-injected canvas elements for cmd: %s (%d elements)",
+                                                "Re-injected canvas elements for cmd: %s (%d elements, animated=%s)",
                                                 c_id, len(bridge_data["elements"]),
+                                                "animation" in bridge_data,
                                             )
 
                         event_json = json.dumps(event_dict)

@@ -16,12 +16,13 @@ import { base64ToArrayBuffer } from "@/lib/utils";
 import type {
   TranscriptEntry,
   CanvasCommand,
+  AnimationGroup,
   ConnectionStatus,
   ConnectOptions,
 } from "@/types/whiteboard";
 
 // Re-export types for consumers that import from this hook
-export type { TranscriptEntry, CanvasCommand, ConnectionStatus };
+export type { TranscriptEntry, CanvasCommand, AnimationGroup, ConnectionStatus };
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,7 @@ export function useWebSocket() {
                 action: resp.action || "add",
                 elements: resp.elements,
                 files: resp.files,
+                animation: Array.isArray(resp.animation) ? resp.animation : undefined,
               };
               console.log("[Canvas CMD]", cmd.tool, cmd.action, cmd.elements.length, "elements");
               setCanvasCommands((prev) => [...prev, cmd]);

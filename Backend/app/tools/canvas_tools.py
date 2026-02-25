@@ -65,16 +65,32 @@ def _box_size(
 canvas_bridge: Dict[str, Dict[str, Any]] = {}
 
 
-def _defer_elements(tool_name: str, action: str, elements: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Store elements in the bridge and return a slim, model-safe response."""
+def _defer_elements(
+    tool_name: str,
+    action: str,
+    elements: List[Dict[str, Any]],
+    animation: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Store elements in the bridge and return a slim, model-safe response.
+
+    Parameters
+    ----------
+    animation:
+        Optional list of animation group dicts, each with ``start`` (int),
+        ``end`` (int, exclusive) and ``delay`` (ms).  When present the
+        frontend renders the element slices progressively.
+    """
     import uuid as _uuid_mod
 
     cmd_id = f"cmd-{_uuid_mod.uuid4().hex[:12]}"
-    canvas_bridge[cmd_id] = {
+    bridge_data: Dict[str, Any] = {
         "tool": tool_name,
         "action": action,
         "elements": elements,
     }
+    if animation:
+        bridge_data["animation"] = animation
+    canvas_bridge[cmd_id] = bridge_data
     return {
         "status": "ok",
         "tool": tool_name,
@@ -442,6 +458,10 @@ async def add_image_to_canvas(
     }
 
 
+# ── Imported from plot_tools to keep this module focused ──────────────────────
+from app.tools.plot_tools import plot_function  # noqa: E402
+
+
 def clear_canvas() -> Dict[str, Any]:
     """Clear everything from the whiteboard canvas."""
     return _defer_elements("clear_canvas", "clear", [])
@@ -455,5 +475,6 @@ canvas_tools = [
     draw_diagram,
     highlight_area,
     add_image_to_canvas,
+    plot_function,
     clear_canvas,
 ]

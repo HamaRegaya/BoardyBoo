@@ -16,11 +16,22 @@ export interface TranscriptEntry {
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
+export interface AnimationGroup {
+    /** Start index (inclusive) in the elements array. */
+    start: number;
+    /** End index (exclusive) in the elements array. */
+    end: number;
+    /** Delay in ms from the start of the animation before this group appears. */
+    delay: number;
+}
+
 export interface CanvasCommand {
     tool: string;
     action: "add" | "replace" | "clear";
     elements: CanvasElement[];
     files?: Record<string, CanvasFileData>;
+    /** When present, elements are rendered progressively in groups. */
+    animation?: AnimationGroup[];
 }
 
 export interface CanvasFileData {

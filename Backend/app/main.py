@@ -272,6 +272,76 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
         # 1011 = internal server error / deadline expired
         return any(code in msg for code in ("1006", "1007", "1008", "1011"))
 
+    # ── Early-push helper: execute the canvas tool on functionCall
+    # so the frontend starts animating before ADK completes the round-trip.
+    # The tool also runs normally via ADK (populating canvas_bridge), but
+    # by then the bridge entry is already consumed here, so re-injection
+    # in the functionResponse path gracefully no-ops.
+
+    # Set of canvas tools whose results carry visual elements.
+    _CANVAS_TOOL_NAMES = {
+        "draw_on_canvas", "write_text_on_canvas", "draw_diagram",
+        "highlight_area", "add_image_to_canvas", "clear_canvas",
+        "plot_function",
+    }
+
+    # Track tool names already early-pushed so we skip the duplicate
+    # re-injection when the normal functionResponse arrives from ADK.
+    _early_pushed: set[str] = set()
+
+    async def _try_early_canvas_push(
+        ws: WebSocket, tool_name: str, args: dict | None,
+    ) -> None:
+        """If *tool_name* is a canvas tool, run it now and push the result
+        to the client right away so animation starts while the model is
+        still processing the tool round-trip internally."""
+        if tool_name not in _CANVAS_TOOL_NAMES or args is None:
+            return
+        try:
+            # Dynamically resolve the tool function
+            from app.tools import canvas_tools as _ct
+            from app.tools import plot_tools as _pt
+
+            fn = getattr(_pt, tool_name, None) or getattr(_ct, tool_name, None)
+            if fn is None:
+                return
+
+            result = fn(**args)  # returns a slim dict with deferred_canvas_id
+
+            # If it produced bridge data, pop and forward immediately
+            if isinstance(result, dict) and "deferred_canvas_id" in result:
+                c_id = result["deferred_canvas_id"]
+                from app.tools.canvas_tools import canvas_bridge
+                if c_id in canvas_bridge:
+                    bridge_data = canvas_bridge.pop(c_id)
+                    result["elements"] = bridge_data["elements"]
+                    if "animation" in bridge_data:
+                        result["animation"] = bridge_data["animation"]
+
+                    # Wrap in a functionResponse-shaped event so the
+                    # frontend's existing CanvasCommand extractor works.
+                    early_event = {
+                        "content": {
+                            "parts": [{
+                                "functionResponse": {
+                                    "name": tool_name,
+                                    "response": result,
+                                }
+                            }]
+                        }
+                    }
+                    await ws.send_text(json.dumps(early_event))
+                    _early_pushed.add(tool_name)
+                    logger.info(
+                        "Early canvas push for %s (%d elements, animated=%s)",
+                        tool_name, len(bridge_data["elements"]),
+                        "animation" in bridge_data,
+                    )
+        except Exception as exc:
+            # Never let this crash the stream — the normal ADK path
+            # will still deliver the data via functionResponse.
+            logger.warning("Early canvas push failed for %s: %s", tool_name, exc)
+
     # Mutable holder so the retry loop can swap the session id
     current_session_id = session_id
 
@@ -312,11 +382,22 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                         continue
 
                     # ── Log function calls/responses for debugging ────
+                    # Also: pre-execute canvas tools on functionCall so
+                    # the frontend starts drawing IMMEDIATELY, before
+                    # ADK finishes its internal tool round-trip.  This
+                    # lets the animation overlap with the speech that
+                    # follows the tool result.
                     if event.content and event.content.parts:
                         for _p in event.content.parts:
                             if _p.function_call:
                                 logger.info(
                                     "\u25b6 FunctionCall: %s args=%s",
+                                    _p.function_call.name,
+                                    _p.function_call.args,
+                                )
+                                # ── Early canvas push ─────────────────
+                                await _try_early_canvas_push(
+                                    websocket,
                                     _p.function_call.name,
                                     _p.function_call.args,
                                 )
@@ -361,19 +442,32 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                                                 r_data.setdefault("action", "add")
                                             logger.info("Re-injected deferred image data for fileId: %s", f_id)
                                     # Re-inject deferred canvas element data
+                                    # (skip if already delivered via early canvas push)
                                     if isinstance(r_data, dict) and "deferred_canvas_id" in r_data:
-                                        c_id = r_data["deferred_canvas_id"]
-                                        from app.tools.canvas_tools import canvas_bridge
-                                        if c_id in canvas_bridge:
-                                            bridge_data = canvas_bridge.pop(c_id)
-                                            r_data["elements"] = bridge_data["elements"]
-                                            if "animation" in bridge_data:
-                                                r_data["animation"] = bridge_data["animation"]
+                                        tool_of_resp = r_data.get("tool") or (resp.get("name") or "")
+                                        if tool_of_resp in _early_pushed:
+                                            # Already sent — discard the duplicate bridge entry
+                                            c_id = r_data["deferred_canvas_id"]
+                                            from app.tools.canvas_tools import canvas_bridge
+                                            canvas_bridge.pop(c_id, None)
+                                            _early_pushed.discard(tool_of_resp)
                                             logger.info(
-                                                "Re-injected canvas elements for cmd: %s (%d elements, animated=%s)",
-                                                c_id, len(bridge_data["elements"]),
-                                                "animation" in bridge_data,
+                                                "Skipped duplicate re-injection for %s (early-pushed)",
+                                                tool_of_resp,
                                             )
+                                        else:
+                                            c_id = r_data["deferred_canvas_id"]
+                                            from app.tools.canvas_tools import canvas_bridge
+                                            if c_id in canvas_bridge:
+                                                bridge_data = canvas_bridge.pop(c_id)
+                                                r_data["elements"] = bridge_data["elements"]
+                                                if "animation" in bridge_data:
+                                                    r_data["animation"] = bridge_data["animation"]
+                                                logger.info(
+                                                    "Re-injected canvas elements for cmd: %s (%d elements, animated=%s)",
+                                                    c_id, len(bridge_data["elements"]),
+                                                    "animation" in bridge_data,
+                                                )
 
                         event_json = json.dumps(event_dict)
                         await websocket.send_text(event_json)

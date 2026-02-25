@@ -148,7 +148,7 @@ def plot_function(
         if end > start:
             anim_groups.append({"start": start, "end": end, "delay": delay_ms})
 
-    # ── Group 1: Axes (delay 0 ms) ─────────────────────────────────────
+    # ── Group 1: Axes + axis labels (delay 0 ms) ──────────────────────
     axis_color = "#495057"
 
     # X axis
@@ -167,9 +167,6 @@ def plot_function(
         "points": [[0, 0], [0, ph]],
         "strokeColor": axis_color, "strokeWidth": 2,
     })
-    _mark_group(0)
-
-    # ── Group 2: Axis labels (delay 200 ms) ────────────────────────────
     elements.append({
         "type": "text", "x": plot_r + 4, "y": plot_b - 8,
         "text": "x", "fontSize": 18, "strokeColor": axis_color, "fontFamily": 1,
@@ -178,7 +175,7 @@ def plot_function(
         "type": "text", "x": plot_l - 6, "y": plot_t - 22,
         "text": "y", "fontSize": 18, "strokeColor": axis_color, "fontFamily": 1,
     })
-    _mark_group(200)
+    _mark_group(0)
 
     # ── Tick helper ────────────────────────────────────────────────────
     def _nice_ticks(lo: float, hi: float, max_ticks: int = 8) -> List[float]:
@@ -202,7 +199,7 @@ def plot_function(
     tick_color = "#868e96"
     tick_len = 6
 
-    # ── Group 3: X ticks (delay 400 ms) ───────────────────────────────
+    # ── Group 2: X ticks (delay 100 ms) ───────────────────────────────
     for tv in _nice_ticks(x_min, x_max):
         tx, _ = to_canvas(tv, 0)
         elements.append({
@@ -218,9 +215,9 @@ def plot_function(
             "x": tx - len(lbl) * 4, "y": plot_b + 6,
             "text": lbl, "fontSize": 12, "strokeColor": tick_color, "fontFamily": 1,
         })
-    _mark_group(400)
+    _mark_group(100)
 
-    # ── Group 4: Y ticks (delay 600 ms) ───────────────────────────────
+    # ── Group 3: Y ticks (delay 180 ms) ───────────────────────────────
     for tv in _nice_ticks(y_min, y_max):
         _, ty = to_canvas(0, tv)
         elements.append({
@@ -236,9 +233,9 @@ def plot_function(
             "x": plot_l - len(lbl) * 8 - 12, "y": ty - 7,
             "text": lbl, "fontSize": 12, "strokeColor": tick_color, "fontFamily": 1,
         })
-    _mark_group(600)
+    _mark_group(180)
 
-    # ── Group 5: Origin indicator (delay 800 ms, only if visible) ─────
+    # ── Group 4: Origin indicator (delay 250 ms, only if visible) ─────
     if x_min <= 0 <= x_max and y_min <= 0 <= y_max:
         ox, oy = to_canvas(0, 0)
         elements.append({
@@ -255,7 +252,7 @@ def plot_function(
             "points": [[0, 0], [pw, 0]],
             "strokeColor": "#dee2e6", "strokeWidth": 1,
         })
-    _mark_group(800)
+    _mark_group(250)
 
     # ── Build contiguous curve segments ────────────────────────────────
     segments: List[List[tuple[float, float]]] = []
@@ -286,8 +283,8 @@ def plot_function(
     total_curve = len(all_curve_pts)
     n_slices = min(_CURVE_ANIM_SLICES, max(1, total_curve // 4))
     slice_size = max(2, total_curve // n_slices)
-    curve_base_delay = 1000  # ms delay before curve starts drawing
-    curve_slice_gap = 120    # ms between each slice appearance
+    curve_base_delay = 350   # ms delay before curve starts drawing
+    curve_slice_gap = 60     # ms between each slice appearance
 
     for sl in range(n_slices):
         sl_start = sl * slice_size
@@ -330,7 +327,7 @@ def plot_function(
         "text": curve_label,
         "fontSize": 16, "strokeColor": color, "fontFamily": 1,
     })
-    _mark_group(curve_base_delay + n_slices * curve_slice_gap + 200)
+    _mark_group(curve_base_delay + n_slices * curve_slice_gap + 120)
 
     logger.info(
         "plot_function: expr='%s' x=[%.2f,%.2f] y=[%.2f,%.2f] points=%d elements=%d groups=%d",

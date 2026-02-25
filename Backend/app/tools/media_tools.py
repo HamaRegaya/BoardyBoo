@@ -96,7 +96,10 @@ class MediaTools:
                 "message": "Image generation failed — no data returned.",
             }
 
-        await add_image_to_canvas(
+        # ⚠️  MUST capture the return value — it carries `deferred_file_id`
+        # which signals main.py to re-inject the image bytes + `elements`
+        # before forwarding the event to the client WebSocket.
+        canvas_result = await add_image_to_canvas(
             image_base64=image_b64,
             x=x,
             y=y,
@@ -105,11 +108,9 @@ class MediaTools:
             mime_type="image/png",
         )
 
-        # Align with canvas tool response format: ensure tool name matches this tool
-
-        
+        # Propagate everything from add_image_to_canvas, but stamp our tool name
+        # so the frontend can identify which tool triggered the canvas update.
         return {
-        "status": "ok",
-        "tool": "generate_and_show_image",
-        "action": "add"
-    }
+            **canvas_result,
+            "tool": "generate_and_show_image",
+        }

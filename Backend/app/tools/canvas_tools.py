@@ -18,6 +18,44 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 
+# ── Text measurement helper ───────────────────────────────────────────────────
+
+_CHAR_WIDTH_RATIO = 0.65   # approximate width-per-pixel relative to font_size (Virgil/handwriting font runs wide)
+_LINE_HEIGHT_RATIO = 1.35  # line height relative to font_size
+_H_PAD = 24                # horizontal padding inside a box (each side)
+_V_PAD = 14                # vertical padding inside a box (each side)
+
+
+def _measure_text_width(text: str, font_size: int) -> float:
+    """Estimate the rendered pixel width for a single line of text.
+
+    Uses a conservative character-width ratio suitable for Excalidraw's
+    'Virgil' (hand-drawn) font.  Multi-line strings use the longest line.
+    """
+    longest = max((len(line) for line in text.splitlines()), default=0)
+    return max(longest * font_size * _CHAR_WIDTH_RATIO, font_size)
+
+
+def _box_size(
+    text: str,
+    font_size: int,
+    min_width: float = 120.0,
+    min_height: float = 44.0,
+) -> tuple[float, float]:
+    """Return (width, height) for a box that comfortably contains *text*."""
+    lines = text.splitlines() or [text]
+    num_lines = len(lines)
+    w = max(
+        max(_measure_text_width(line, font_size) for line in lines) + _H_PAD * 2,
+        min_width,
+    )
+    h = max(
+        num_lines * font_size * _LINE_HEIGHT_RATIO + _V_PAD * 2,
+        min_height,
+    )
+    return w, h
+
+
 # ── Canvas Element Bridge ─────────────────────────────────────────────────────
 # Stores full element payloads so tool responses sent back to the Gemini Live
 # model stay small.  main.py re-injects the element data before forwarding
@@ -101,6 +139,7 @@ def write_text_on_canvas(
     color:
         Hex color string (default dark grey).
     """
+    text_w, text_h = _box_size(text, font_size, min_width=0, min_height=0)
     element = {
         "type": "text",
         "x": x,
@@ -108,7 +147,9 @@ def write_text_on_canvas(
         "text": text,
         "fontSize": font_size,
         "strokeColor": color,
-        "fontFamily": 1,  # Virgil (hand-drawn)
+        "fontFamily": 1,          # Virgil (hand-drawn)
+        "width": text_w,          # hint to Excalidraw so it never wraps early
+        "height": text_h,
     }
     logger.info("write_text_on_canvas at (%.0f, %.0f): %s", x, y, text[:60])
     return _defer_elements("write_text_on_canvas", "add", [element])
@@ -154,70 +195,96 @@ def draw_diagram(
 
     # Generate elements based on diagram type
     if diagram_type == "flowchart":
+        # Pre-compute the widest box so all flowchart steps are the same width
+        fc_font = 18
+        max_box_w = max((_box_size(it, fc_font)[0] for it in items), default=200)
+        box_h = 50  # fixed height per step
+        row_gap = 100  # vertical distance between box tops
+
         for i, item in enumerate(items):
-            box_y = y + 60 + i * 100
+            box_y = y + 60 + i * row_gap
+            item_w, _ = _box_size(item, fc_font)
+            bw = max(item_w, max_box_w)  # uniform width across all steps
+            cx = x + bw / 2             # centre-x for the arrow
             elements.append({
                 "type": "rectangle",
                 "x": x,
                 "y": box_y,
-                "width": 200,
-                "height": 50,
+                "width": bw,
+                "height": box_h,
                 "strokeColor": "#1864ab",
                 "backgroundColor": "#d0ebff",
                 "fillStyle": "solid",
             })
+            _, th = _box_size(item, fc_font, min_width=0, min_height=0)
             elements.append({
                 "type": "text",
-                "x": x + 20,
-                "y": box_y + 12,
+                "x": x + _H_PAD,
+                "y": box_y + (box_h - th) / 2,
                 "text": item,
-                "fontSize": 18,
+                "fontSize": fc_font,
                 "strokeColor": "#1e1e1e",
+                # Use full box interior so long labels are never clipped
+                "width": bw - _H_PAD * 2,
+                "height": th,
             })
             if i < len(items) - 1:
                 elements.append({
                     "type": "arrow",
-                    "x": x + 100,
-                    "y": box_y + 50,
+                    "x": cx,
+                    "y": box_y + box_h,
                     "width": 0,
-                    "height": 50,
+                    "height": row_gap - box_h,
                     "strokeColor": "#1864ab",
                 })
 
     elif diagram_type == "mindmap":
-        # Central node
+        import math
+        mm_font = 16
+        # Size the central node to fit the title text
+        centre_text = title or "Topic"
+        centre_w = max(_measure_text_width(centre_text, mm_font) + _H_PAD * 2, 160)
+        centre_h = max(mm_font * _LINE_HEIGHT_RATIO + _V_PAD * 2, 60)
+        cx_centre = x + 50 + centre_w / 2
+        cy_centre = y + 90 + centre_h / 2
         elements.append({
             "type": "ellipse",
             "x": x + 50,
             "y": y + 60,
-            "width": 160,
-            "height": 60,
+            "width": centre_w,
+            "height": centre_h,
             "strokeColor": "#e67700",
             "backgroundColor": "#fff3bf",
             "fillStyle": "solid",
         })
         for i, item in enumerate(items):
-            import math
             angle = (2 * math.pi * i) / max(len(items), 1)
-            bx = x + 130 + int(200 * math.cos(angle))
-            by = y + 90 + int(150 * math.sin(angle))
+            bw, bh = _box_size(item, mm_font)
+            # Radiate branches further out when items are wider
+            radius_x = max(centre_w / 2 + bw + 40, 220)
+            radius_y = max(centre_h / 2 + bh + 40, 175)
+            bx = int(cx_centre + radius_x * math.cos(angle) - bw / 2)
+            by = int(cy_centre + radius_y * math.sin(angle) - bh / 2)
             elements.append({
                 "type": "rectangle",
                 "x": bx,
                 "y": by,
-                "width": 140,
-                "height": 40,
+                "width": bw,
+                "height": bh,
                 "strokeColor": "#2b8a3e",
                 "backgroundColor": "#d3f9d8",
                 "fillStyle": "solid",
             })
+            _, th = _box_size(item, mm_font, min_width=0, min_height=0)
             elements.append({
                 "type": "text",
-                "x": bx + 10,
-                "y": by + 8,
+                "x": bx + _H_PAD,
+                "y": by + (bh - th) / 2,
                 "text": item,
-                "fontSize": 16,
+                "fontSize": mm_font,
                 "strokeColor": "#1e1e1e",
+                "width": bw - _H_PAD * 2,
+                "height": th,
             })
 
     elif diagram_type == "list":
@@ -232,23 +299,36 @@ def draw_diagram(
             })
 
     else:
-        # Generic: render items as text list with a border
+        # Generic: render items as text list inside a border rectangle.
+        # Size the rectangle to the widest item so nothing overflows.
+        gen_font = 18
+        inner_w = max(
+            (_measure_text_width(it, gen_font) for it in items),
+            default=300,
+        )
+        box_w = inner_w + _H_PAD * 2 + 20
+        row_px = gen_font * _LINE_HEIGHT_RATIO + 6
+        box_h = 60 + len(items) * row_px + 20
         elements.append({
             "type": "rectangle",
             "x": x - 10,
             "y": y - 10,
-            "width": 340,
-            "height": 60 + len(items) * 36 + 20,
+            "width": box_w,
+            "height": box_h,
             "strokeColor": "#868e96",
         })
         for i, item in enumerate(items):
+            _, th = _box_size(item, gen_font, min_width=0, min_height=0)
             elements.append({
                 "type": "text",
-                "x": x + 10,
-                "y": y + 50 + i * 36,
+                "x": x + _H_PAD,
+                "y": y + 50 + i * row_px,
                 "text": item,
-                "fontSize": 18,
+                "fontSize": gen_font,
                 "strokeColor": "#1e1e1e",
+                # Full box interior so nothing clips
+                "width": box_w - _H_PAD * 2 - 20,
+                "height": th,
             })
 
     logger.info(

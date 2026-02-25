@@ -25,6 +25,12 @@ _LINE_HEIGHT_RATIO = 1.35  # line height relative to font_size
 _H_PAD = 24                # horizontal padding inside a box (each side)
 _V_PAD = 14                # vertical padding inside a box (each side)
 
+# Auto-advancing Y cursor so consecutive text writes stack vertically.
+# Reset by clear_canvas.
+_TEXT_SPACING = 12          # vertical gap between consecutive text blocks
+_cursor_y: float = 60.0    # current vertical cursor position
+_CURSOR_Y_INIT: float = 60.0
+
 
 def _measure_text_width(text: str, font_size: int) -> float:
     """Estimate the rendered pixel width for a single line of text.
@@ -136,7 +142,7 @@ def draw_on_canvas(
 def write_text_on_canvas(
     text: str,
     x: float = 100.0,
-    y: float = 100.0,
+    y: float = -1.0,
     font_size: int = 24,
     color: str = "#1e1e1e",
 ) -> Dict[str, Any]:
@@ -149,12 +155,23 @@ def write_text_on_canvas(
     x:
         Horizontal position in canvas pixels.
     y:
-        Vertical position in canvas pixels.
+        Vertical position in canvas pixels.  Leave at default (-1) to
+        auto-place below the last text written.
     font_size:
         Font size in pixels (default 24).
     color:
         Hex color string (default dark grey).
     """
+    global _cursor_y
+
+    # Auto-position: place below the last text written
+    if y < 0:
+        y = _cursor_y
+
+    # Estimate height of this text block
+    lines = text.splitlines() or [text]
+    text_h = len(lines) * font_size * _LINE_HEIGHT_RATIO
+
     element = {
         "type": "text",
         "x": x,
@@ -165,6 +182,10 @@ def write_text_on_canvas(
         "fontFamily": 1,          # Virgil (hand-drawn)
         # width/height omitted — Excalidraw auto-sizes text using real font metrics
     }
+
+    # Advance cursor past this block
+    _cursor_y = y + text_h + _TEXT_SPACING
+
     logger.info("write_text_on_canvas at (%.0f, %.0f): %s", x, y, text[:60])
     return _defer_elements("write_text_on_canvas", "add", [element])
 
@@ -462,6 +483,8 @@ from app.tools.plot_tools import plot_function  # noqa: E402
 
 def clear_canvas() -> Dict[str, Any]:
     """Clear everything from the whiteboard canvas."""
+    global _cursor_y
+    _cursor_y = _CURSOR_Y_INIT
     return _defer_elements("clear_canvas", "clear", [])
 
 

@@ -102,6 +102,12 @@ Do NOT waste words saying "let me draw…", "I'll show you…", or
 "here, let me put that on the board" — just call the tool while you
 speak so the drawing appears on the board simultaneously with your voice.
 
+## Text placement
+When calling `write_text_on_canvas`, do NOT pass a `y` value — omit it so the
+board auto-places each new text block below the previous one.  Only pass an
+explicit `y` if you need to position text at a specific location (e.g. next to
+a diagram).  The cursor resets automatically when you call `clear_canvas`.
+
 ## Canvas awareness
 The student has an Excalidraw whiteboard in front of them.  You can:
 - See what they draw (images arrive as canvas snapshots).

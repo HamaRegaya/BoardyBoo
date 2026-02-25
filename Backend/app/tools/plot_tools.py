@@ -16,6 +16,7 @@ import math
 from typing import Any, Dict, List, Optional
 
 from app.tools.canvas_tools import _defer_elements
+import app.tools.canvas_tools as _ct
 
 logger = logging.getLogger(__name__)
 
@@ -333,4 +334,9 @@ def plot_function(
         "plot_function: expr='%s' x=[%.2f,%.2f] y=[%.2f,%.2f] points=%d elements=%d groups=%d",
         expression, x_min, x_max, y_min, y_max, len(raw_points), len(elements), len(anim_groups),
     )
+
+    # Advance the shared text cursor below the plot so subsequent
+    # write_text_on_canvas calls don't overlap the graph.
+    _ct._cursor_y = max(_ct._cursor_y, canvas_y + canvas_height + _ct._TEXT_SPACING + 30)
+
     return _defer_elements("plot_function", "add", elements, animation=anim_groups)

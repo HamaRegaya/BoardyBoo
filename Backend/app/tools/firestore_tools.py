@@ -7,9 +7,9 @@ so they're safe inside the ADK tool executor.
 
 from __future__ import annotations
 
-import datetime
+import functools
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from google.cloud import firestore
 
@@ -17,11 +17,29 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_tool(fn: Callable) -> Callable:
+    """Decorator ensuring tool functions never raise.
+
+    ADK live-flow crashes if a tool raises an unhandled exception.
+    This catches everything and returns a graceful error dict instead.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            logger.error("%s failed: %s", fn.__name__, exc, exc_info=True)
+            return {"status": "error", "message": f"{fn.__name__} is temporarily unavailable."}
+
+    return wrapper
+
 # Lazy-initialised Firestore client
-_db: firestore.Client | None = None
+_db = None
 
 
-def _get_db() -> firestore.Client:
+def _get_db():
     global _db
     if _db is None:
         _db = firestore.Client(
@@ -34,6 +52,7 @@ def _get_db() -> firestore.Client:
 # ── Session Notes ─────────────────────────────────────────────────────────────
 
 
+@_safe_tool
 def save_session_notes(
     user_id: str,
     session_id: str,
@@ -71,6 +90,7 @@ def save_session_notes(
 # ── Progress Tracking ─────────────────────────────────────────────────────────
 
 
+@_safe_tool
 def update_progress(
     user_id: str,
     subject: str,
@@ -106,6 +126,7 @@ def update_progress(
     return {"status": "ok", "message": f"Progress updated: {topic} → level {mastery_level}/5."}
 
 
+@_safe_tool
 def get_progress(
     user_id: str,
     subject: Optional[str] = None,
@@ -139,6 +160,7 @@ def get_progress(
 # ── Quiz / Assessment ─────────────────────────────────────────────────────────
 
 
+@_safe_tool
 def save_quiz_result(
     user_id: str,
     session_id: str,
@@ -189,6 +211,7 @@ def save_quiz_result(
 # ── Study Plan ────────────────────────────────────────────────────────────────
 
 
+@_safe_tool
 def save_study_plan(
     user_id: str,
     plan_name: str,
@@ -221,6 +244,7 @@ def save_study_plan(
     return {"status": "ok", "message": f"Study plan '{plan_name}' saved."}
 
 
+@_safe_tool
 def get_study_plans(user_id: str) -> Dict[str, Any]:
     """Retrieve all study plans for a student.
 

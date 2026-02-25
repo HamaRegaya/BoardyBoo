@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # ── Text measurement helper ───────────────────────────────────────────────────
 
-_CHAR_WIDTH_RATIO = 0.65   # approximate width-per-pixel relative to font_size (Virgil/handwriting font runs wide)
+_CHAR_WIDTH_RATIO = 0.8    # approximate width-per-pixel relative to font_size (Virgil/handwriting font runs wide)
 _LINE_HEIGHT_RATIO = 1.35  # line height relative to font_size
 _H_PAD = 24                # horizontal padding inside a box (each side)
 _V_PAD = 14                # vertical padding inside a box (each side)
@@ -155,7 +155,6 @@ def write_text_on_canvas(
     color:
         Hex color string (default dark grey).
     """
-    text_w, text_h = _box_size(text, font_size, min_width=0, min_height=0)
     element = {
         "type": "text",
         "x": x,
@@ -164,8 +163,7 @@ def write_text_on_canvas(
         "fontSize": font_size,
         "strokeColor": color,
         "fontFamily": 1,          # Virgil (hand-drawn)
-        "width": text_w,          # hint to Excalidraw so it never wraps early
-        "height": text_h,
+        # width/height omitted — Excalidraw auto-sizes text using real font metrics
     }
     logger.info("write_text_on_canvas at (%.0f, %.0f): %s", x, y, text[:60])
     return _defer_elements("write_text_on_canvas", "add", [element])

@@ -189,14 +189,8 @@ export function useWebSocket() {
         const text = event.inputTranscription.text;
         const finished = event.inputTranscription.finished;
 
-        if (!currentInputIdRef.current) {
-          const id = crypto.randomUUID();
-          currentInputIdRef.current = id;
-          setMessages((prev) => [
-            ...prev,
-            { id, role: "user", text, partial: !finished, timestamp: Date.now() },
-          ]);
-        } else {
+        if (currentInputIdRef.current) {
+          // Active streaming message → append delta
           const curId = currentInputIdRef.current;
           setMessages((prev) =>
             prev.map((m) =>
@@ -205,8 +199,17 @@ export function useWebSocket() {
                 : m
             )
           );
+          if (finished) currentInputIdRef.current = null;
+        } else if (!finished) {
+          // Brand-new partial utterance → create entry
+          const id = crypto.randomUUID();
+          currentInputIdRef.current = id;
+          setMessages((prev) => [
+            ...prev,
+            { id, role: "user", text, partial: true, timestamp: Date.now() },
+          ]);
         }
-        if (finished) currentInputIdRef.current = null;
+        // else: finished=true with no active ref → stale echo, ignore
       }
 
       // ─ Output transcription (model speech → text) ─
@@ -214,12 +217,30 @@ export function useWebSocket() {
         const text = event.outputTranscription.text;
         const finished = event.outputTranscription.finished;
 
-        // Finalize any open input transcription
+        // Finalize any open input transcription when output begins
         if (currentInputIdRef.current && !currentOutputIdRef.current) {
+          const inputId = currentInputIdRef.current;
           currentInputIdRef.current = null;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === inputId ? { ...m, partial: false } : m
+            )
+          );
         }
 
-        if (!currentOutputIdRef.current) {
+        if (currentOutputIdRef.current) {
+          // Active streaming message → append delta
+          const curId = currentOutputIdRef.current;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === curId
+                ? { ...m, text: m.text + text, partial: !finished }
+                : m
+            )
+          );
+          if (finished) currentOutputIdRef.current = null;
+        } else if (!finished) {
+          // Brand-new partial output → create entry
           const id = crypto.randomUUID();
           currentOutputIdRef.current = id;
           setMessages((prev) => [
@@ -229,21 +250,12 @@ export function useWebSocket() {
               role: "agent",
               text,
               agentName: event.author,
-              partial: !finished,
+              partial: true,
               timestamp: Date.now(),
             },
           ]);
-        } else {
-          const curId = currentOutputIdRef.current;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === curId
-                ? { ...m, text: m.text + text, partial: !finished }
-                : m
-            )
-          );
         }
-        if (finished) currentOutputIdRef.current = null;
+        // else: finished=true with no active ref → stale echo, ignore
       }
 
       // ─ Audio content (inline PCM) ─
@@ -292,13 +304,31 @@ export function useWebSocket() {
       }
 
       // ─ Turn complete / interrupted ─
-      if (event.turnComplete) {
+      if (event.turnComplete || event.interrupted) {
+        // Finalize any still-open partial messages before clearing refs
+        setMessages((prev) => {
+          let updated = prev;
+          if (currentOutputIdRef.current) {
+            const oid = currentOutputIdRef.current;
+            updated = updated.map((m) =>
+              m.id === oid ? { ...m, partial: false } : m
+            );
+          }
+          if (currentInputIdRef.current) {
+            const iid = currentInputIdRef.current;
+            updated = updated.map((m) =>
+              m.id === iid ? { ...m, partial: false } : m
+            );
+          }
+          return updated;
+        });
         currentOutputIdRef.current = null;
-      }
-      if (event.interrupted) {
-        console.log("[ADK] User interrupted agent!");
-        currentOutputIdRef.current = null;
-        onInterruptRef.current?.();
+        currentInputIdRef.current = null;
+
+        if (event.interrupted) {
+          console.log("[ADK] User interrupted agent!");
+          onInterruptRef.current?.();
+        }
       }
     },
     []

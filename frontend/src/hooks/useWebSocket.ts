@@ -190,18 +190,28 @@ export function useWebSocket() {
         const finished = event.inputTranscription.finished;
 
         if (currentInputIdRef.current) {
-          // Active streaming message → append delta
           const curId = currentInputIdRef.current;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === curId
-                ? { ...m, text: m.text + text, partial: !finished }
-                : m
-            )
-          );
-          if (finished) currentInputIdRef.current = null;
+          if (finished) {
+            // Final event — just mark complete, don't touch text
+            // (the accumulated deltas already have the full content;
+            //  appending the final cumulative payload would double it)
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === curId ? { ...m, partial: false } : m
+              )
+            );
+            currentInputIdRef.current = null;
+          } else {
+            // Streaming delta — append to the running message
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === curId
+                  ? { ...m, text: m.text + text, partial: true }
+                  : m
+              )
+            );
+          }
         } else if (!finished) {
-          // Brand-new partial utterance → create entry
           const id = crypto.randomUUID();
           currentInputIdRef.current = id;
           setMessages((prev) => [
@@ -209,7 +219,6 @@ export function useWebSocket() {
             { id, role: "user", text, partial: true, timestamp: Date.now() },
           ]);
         }
-        // else: finished=true with no active ref → stale echo, ignore
       }
 
       // ─ Output transcription (model speech → text) ─
@@ -229,18 +238,26 @@ export function useWebSocket() {
         }
 
         if (currentOutputIdRef.current) {
-          // Active streaming message → append delta
           const curId = currentOutputIdRef.current;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === curId
-                ? { ...m, text: m.text + text, partial: !finished }
-                : m
-            )
-          );
-          if (finished) currentOutputIdRef.current = null;
+          if (finished) {
+            // Final event — just mark complete, don't touch text
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === curId ? { ...m, partial: false } : m
+              )
+            );
+            currentOutputIdRef.current = null;
+          } else {
+            // Streaming delta — append to the running message
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === curId
+                  ? { ...m, text: m.text + text, partial: true }
+                  : m
+              )
+            );
+          }
         } else if (!finished) {
-          // Brand-new partial output → create entry
           const id = crypto.randomUUID();
           currentOutputIdRef.current = id;
           setMessages((prev) => [
@@ -255,7 +272,6 @@ export function useWebSocket() {
             },
           ]);
         }
-        // else: finished=true with no active ref → stale echo, ignore
       }
 
       // ─ Audio content (inline PCM) ─

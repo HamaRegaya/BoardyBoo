@@ -10,9 +10,11 @@ import type { TranscriptEntry } from "@/hooks/useWebSocket";
 interface Props {
   messages: TranscriptEntry[];
   onSendText: (text: string) => void;
+  /** Google profile photo URL for the signed-in user. */
+  userPhotoURL?: string;
 }
 
-export default function TranscriptPanel({ messages, onSendText }: Props) {
+export default function TranscriptPanel({ messages, onSendText, userPhotoURL }: Props) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -66,7 +68,11 @@ export default function TranscriptPanel({ messages, onSendText }: Props) {
           <div key={m.id} className={`activity-item ${m.role} ${m.partial ? "partial" : ""}`}>
             <div className="activity-avatar">
               {m.role === "user" ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                userPhotoURL ? (
+                  <img src={userPhotoURL} alt="You" width={28} height={28} style={{ borderRadius: "50%", objectFit: "cover" }} />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                )
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 12H7v-2h10v2zm0-3H7V9h10v2zm0-3H7V6h10v2z"/></svg>
               )}

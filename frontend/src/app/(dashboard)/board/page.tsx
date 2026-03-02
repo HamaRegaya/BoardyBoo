@@ -244,7 +244,7 @@ export default function Page() {
 
         {/* Side panel — transcript */}
         <div className="side-panel">
-          <TranscriptPanel messages={messages} onSendText={sendText} />
+          <TranscriptPanel messages={messages} onSendText={sendText} userPhotoURL={user?.photoURL || undefined} />
         </div>
       </div>
     </main>

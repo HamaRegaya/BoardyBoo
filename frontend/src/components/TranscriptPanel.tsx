@@ -38,14 +38,15 @@ export default function TranscriptPanel({ messages, onSendText, userPhotoURL }: 
   };
 
   return (
-    <div className={`panel-container ${collapsed ? "collapsed" : ""}`}>
+    <>
       <button
-        className="panel-toggle"
+        className={`panel-toggle ${collapsed ? "panel-toggle-collapsed" : ""}`}
         onClick={() => setCollapsed(!collapsed)}
         title={collapsed ? "Show panel" : "Hide panel"}
       >
         {collapsed ? "◀" : "▶"}
       </button>
+      <div className={`panel-container ${collapsed ? "collapsed" : ""}`}>
 
       <div className="panel-header">
         <div className="panel-header-icon">
@@ -105,5 +106,6 @@ export default function TranscriptPanel({ messages, onSendText, userPhotoURL }: 
         </button>
       </form>
     </div>
+    </>
   );
 }

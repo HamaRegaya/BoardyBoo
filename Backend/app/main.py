@@ -39,8 +39,10 @@ from app.utils.errors import (
     ErrorPayload,
     ErrorSeverity,
     classify_adk_error,
+    classify_api_error,
 )
 from app.utils.logging_config import setup_logging
+from app.utils.ws_signals import set_ws_notify, ws_notify
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +153,13 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     logger.info("WS connected: user=%s session=%s", user_id, session_id)
 
     assert runner is not None and session_service is not None
+
+    # Register per-session WS notify callback so tools (e.g.
+    # generate_and_show_image) can send early status signals to this
+    # client without holding a direct WebSocket reference.
+    _notify_token = set_ws_notify(
+        lambda data: asyncio.ensure_future(_send_json(websocket, data))
+    )
 
     # Ensure an ADK session exists for this user/session pair.
     session = await session_service.get_session(
@@ -264,13 +273,14 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     MAX_LIVE_RETRIES = 3
 
     def _is_transient_live_error(exc: BaseException) -> bool:
-        """Return True if the Gemini Live WS error is retryable."""
-        msg = str(exc)
-        # 1006 = abnormal closure
-        # 1007 = invalid argument (stale session replay)
-        # 1008 = policy violation (payload too large)
-        # 1011 = internal server error / deadline expired
-        return any(code in msg for code in ("1006", "1007", "1008", "1011"))
+        """Return True if the Gemini Live WS error is retryable.
+
+        Delegates to classify_api_error which checks:
+          1. exc.status_code (google.genai.errors.APIError structured field)
+          2. String-matching the message as a fallback
+        """
+        _, retryable = classify_api_error(exc)
+        return retryable
 
     # ── Early-push helper: execute the canvas tool on functionCall
     # so the frontend starts animating before ADK completes the round-trip.
@@ -395,6 +405,17 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                                     _p.function_call.name,
                                     _p.function_call.args,
                                 )
+                                # ── Early image-generation signal ──────
+                                # Alert the frontend IMMEDIATELY so it
+                                # can show a loading spinner before the
+                                # Gemini image API call even starts.
+                                if _p.function_call.name == "generate_and_show_image":
+                                    await _send_json(websocket, {
+                                        "type": "generating_image",
+                                        "tool": "generate_and_show_image",
+                                        "status": "started",
+                                    })
+                                    logger.info("Sent early generating_image signal to client")
                                 # ── Early canvas push ─────────────────
                                 await _try_early_canvas_push(
                                     websocket,
@@ -479,17 +500,19 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                 return
 
             except Exception as exc:
-                if _is_transient_live_error(exc) and attempt < MAX_LIVE_RETRIES:
+                error_payload, retryable = classify_api_error(exc)
+                if retryable and attempt < MAX_LIVE_RETRIES:
                     delay = 1.0 * (attempt + 1)
                     logger.warning(
-                        "Gemini Live connection lost (attempt %d/%d): %s "
+                        "Gemini Live connection lost (attempt %d/%d, code=%s): %s "
                         "— reconnecting in %.0fs…",
-                        attempt + 1, MAX_LIVE_RETRIES, exc, delay,
+                        attempt + 1, MAX_LIVE_RETRIES,
+                        error_payload.code, exc, delay,
                     )
                     await _send_json(websocket, {
                         "type": "info",
                         "code": "RECONNECTING",
-                        "message": "Connection to AI was briefly interrupted. Reconnecting…",
+                        "message": error_payload.message,
                         "attempt": attempt + 1,
                         "max_attempts": MAX_LIVE_RETRIES,
                     })
@@ -538,6 +561,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     except Exception as exc:
         logger.error("Session error: %s", exc, exc_info=True)
     finally:
+        # Remove the WS notify callback so the closed websocket can
+        # be GC'd and no stale callbacks linger in the contextvar.
+        ws_notify.reset(_notify_token)
         live_request_queue.close()
         logger.info("WS session cleaned up: user=%s session=%s", user_id, session_id)
         try:

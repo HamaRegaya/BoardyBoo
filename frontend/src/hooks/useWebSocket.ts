@@ -31,6 +31,7 @@ export function useWebSocket() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [messages, setMessages] = useState<TranscriptEntry[]>([]);
   const [canvasCommands, setCanvasCommands] = useState<CanvasCommand[]>([]);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Refs for mutable input/output transcription tracking
   const currentInputIdRef = useRef<string | null>(null);
@@ -184,6 +185,21 @@ export function useWebSocket() {
         return;
       }
 
+      // ─ Early image-generation signal from backend ─
+      // Sent by media_tools.py the instant generate_and_show_image is called —
+      // before the Gemini image API call even starts.
+      if (event.type === "generating_image") {
+        if (event.status === "started") {
+          setIsGeneratingImage(true);
+          console.log("[WS] Image generation started (early signal from tool)");
+        } else {
+          // "error" or any other status → clear the spinner
+          setIsGeneratingImage(false);
+          console.log("[WS] Image generation signal:", event.status);
+        }
+        return;
+      }
+
       // ─ Input transcription (user speech → text) ─
       if (event.inputTranscription?.text) {
         const text = event.inputTranscription.text;
@@ -289,6 +305,13 @@ export function useWebSocket() {
       // ─ Extract canvas commands from function response events ─
       if (event.content?.parts) {
         for (const part of event.content.parts) {
+          // Detect image-generation tool calls → show loading indicator
+          const fnCall = part.functionCall ?? part.function_call;
+          if (fnCall?.name === "generate_and_show_image") {
+            setIsGeneratingImage(true);
+            console.log("[WS] Image generation started");
+          }
+
           // Handle both camelCase (by_alias=True) and snake_case keys
           const fnResp = part.functionResponse ?? part.function_response;
           if (fnResp) {
@@ -298,6 +321,11 @@ export function useWebSocket() {
               fnResp.name,
               JSON.stringify(resp)?.substring(0, 300)
             );
+            // Clear image-generation loading indicator
+            if (fnResp.name === "generate_and_show_image") {
+              setIsGeneratingImage(false);
+              console.log("[WS] Image generation complete");
+            }
             // Extract canvas command if it has elements
             if (resp && Array.isArray(resp.elements)) {
               const cmd: CanvasCommand = {
@@ -361,6 +389,7 @@ export function useWebSocket() {
     status,
     messages,
     canvasCommands,
+    isGeneratingImage,
     connect,
     disconnect,
     sendText,

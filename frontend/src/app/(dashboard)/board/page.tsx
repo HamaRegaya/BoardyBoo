@@ -45,6 +45,7 @@ export default function Page() {
     status,
     messages,
     canvasCommands,
+    isGeneratingImage,
     connect,
     disconnect,
     sendText,
@@ -254,7 +255,7 @@ export default function Page() {
       <div className="content-area">
         {/* Canvas panel */}
         <div className="canvas-panel">
-          <WhiteboardCanvas ref={canvasRef} canvasCommands={canvasCommands} />
+          <WhiteboardCanvas ref={canvasRef} canvasCommands={canvasCommands} isGeneratingImage={isGeneratingImage} />
         </div>
 
         {/* Side panel — transcript */}

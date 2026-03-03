@@ -24,14 +24,18 @@ logger = logging.getLogger(__name__)
 _CURVE_ANIM_SLICES = 6
 
 
+# Gap between the last written text and the top of the plot
+_PLOT_Y_GAP = 5.0
+
+
 def plot_function(
     expression: str,
     x_min: float = -10.0,
     x_max: float = 10.0,
     y_min: Optional[float] = None,
     y_max: Optional[float] = None,
-    canvas_x: float = 100.0,
-    canvas_y: float = 100.0,
+    canvas_x: float = 90.0,
+    canvas_y: float = -1.0,
     canvas_width: float = 500.0,
     canvas_height: float = 400.0,
     color: str = "#e03131",
@@ -65,9 +69,12 @@ def plot_function(
     y_max:
         Top bound of the y-range.  If omitted the tool auto-scales.
     canvas_x:
-        Left edge of the plot area on the canvas (pixels).
+        Left edge of the plot area on the canvas (pixels, default 90).
     canvas_y:
-        Top edge of the plot area on the canvas (pixels).
+        Top edge of the plot area on the canvas (pixels).  Leave at
+        default (-1) to auto-place the plot below the last piece of
+        content written on the board so it never overlaps existing text
+        or diagrams. without putting so much space betweeen them
     canvas_width:
         Width of the plot area in canvas pixels (default 500).
     canvas_height:
@@ -80,6 +87,12 @@ def plot_function(
     num_points:
         Number of sample points along the x range (default 200).
     """
+
+    # ── Auto-position below existing board content ────────────────────
+    # Use the shared text cursor as the anchor so the plot always lands
+    # below whatever text / diagrams have already been written.
+    if canvas_y < 0:
+        canvas_y = max(_ct._cursor_y + _PLOT_Y_GAP, _ct._CURSOR_Y_INIT + _PLOT_Y_GAP)
 
     # ── Safe evaluation namespace ──────────────────────────────────────
     _safe_ns: Dict[str, Any] = {
@@ -337,6 +350,6 @@ def plot_function(
 
     # Advance the shared text cursor below the plot so subsequent
     # write_text_on_canvas calls don't overlap the graph.
-    _ct._cursor_y = max(_ct._cursor_y, canvas_y + canvas_height + _ct._TEXT_SPACING + 30)
+    _ct._cursor_y = max(_ct._cursor_y, canvas_y + canvas_height + _ct._TEXT_SPACING + 7)
 
     return _defer_elements("plot_function", "add", elements, animation=anim_groups)

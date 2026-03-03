@@ -20,10 +20,11 @@ export interface WhiteboardCanvasRef {
 interface Props {
   canvasCommands: CanvasCommand[];
   onCanvasChange?: () => void;
+  isGeneratingImage?: boolean;
 }
 
 const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
-  ({ canvasCommands, onCanvasChange }, ref) => {
+  ({ canvasCommands, onCanvasChange, isGeneratingImage = false }, ref) => {
     const [ready, setReady] = useState(false);
     const apiRef = useRef<any>(null);
     const [ExcalidrawComp, setExcalidrawComp] = useState<any>(null);
@@ -464,6 +465,42 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
             },
           }}
         />
+
+        {/* ── Image-generation loading overlay ────────────────────── */}
+        {isGeneratingImage && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255, 255, 255, 0.78)",
+              backdropFilter: "blur(4px)",
+              zIndex: 50,
+              gap: "16px",
+              pointerEvents: "none",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/video_loading.gif"
+              alt="Generating image…"
+              style={{ width: 120, height: 120, objectFit: "contain" }}
+            />
+            <span
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                color: "#495057",
+                letterSpacing: "0.01em",
+              }}
+            >
+              ✨ Generating image…
+            </span>
+          </div>
+        )}
       </div>
     );
   }

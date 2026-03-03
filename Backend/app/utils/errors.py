@@ -90,6 +90,17 @@ _USER_MESSAGES: Dict[str, str] = {
     "CANCELLED": "The session was cancelled.",
 }
 
+# WS close codes from google.genai.errors.APIError (status_code field)
+# True = retryable (transient), False = fatal
+_WS_RETRYABLE_CODES: Dict[int, bool] = {
+    1006: True,   # Abnormal closure — network blip
+    1007: True,   # Invalid frame payload — stale session history, reconnect with fresh session
+    1008: True,   # Policy violation — payload too large or unsupported operation; retry
+    1011: True,   # Internal server error / deadline expired
+    1001: False,  # Going away — server shutting down, fatal
+    1003: False,  # Unsupported data type, fatal
+}
+
 
 def classify_adk_error(
     error_code: str | None,
@@ -125,6 +136,50 @@ def classify_adk_error(
         retry_after=retry_after,
     )
     return payload, should_break
+
+
+def classify_api_error(exc: BaseException) -> tuple["ErrorPayload", bool]:
+    """Classify a ``google.genai.errors.APIError`` (or similar) exception.
+
+    Returns ``(ErrorPayload, is_retryable)`` where *is_retryable* is True
+    if the caller should retry the operation with a fresh session.
+    """
+    # Try to extract a numeric WS close code from the exception.
+    # google.genai.errors.APIError stores it in .status_code
+    status_code: Optional[int] = getattr(exc, "status_code", None)
+    msg = str(exc)
+
+    # Fallback: parse it from the message string (e.g. "1008 None. ...")
+    if status_code is None:
+        for code in (1006, 1007, 1008, 1011, 1001, 1003):
+            if str(code) in msg:
+                status_code = code
+                break
+
+    retryable = _WS_RETRYABLE_CODES.get(status_code or 0, False)
+
+    # Human-readable messages keyed by code
+    _WS_MESSAGES: Dict[int, str] = {
+        1006: "Connection was interrupted unexpectedly. Reconnecting…",
+        1007: "Session history conflict. Starting fresh session…",
+        1008: "Operation not supported by the AI service. Reconnecting…",
+        1011: "AI service encountered an internal error. Retrying…",
+    }
+    human_msg = _WS_MESSAGES.get(
+        status_code or 0,
+        "Connection to AI service was lost. Reconnecting…" if retryable
+        else "Connection to AI service failed.",
+    )
+
+    payload = ErrorPayload(
+        category=ErrorCategory.CONNECTION,
+        severity=ErrorSeverity.TRANSIENT if retryable else ErrorSeverity.FATAL,
+        code=f"WS_{status_code or 'UNKNOWN'}",
+        message=human_msg,
+        detail=msg[:200],
+        retry_after=2.0 if retryable else None,
+    )
+    return payload, retryable
 
 
 # ── Custom Exceptions ─────────────────────────────────────────────────────────

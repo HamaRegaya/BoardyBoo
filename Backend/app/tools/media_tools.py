@@ -7,6 +7,11 @@ from google import genai
 from google.genai import types
 
 from app.tools.canvas_tools import add_image_to_canvas
+import app.tools.canvas_tools as _ct
+from app.utils.ws_signals import ws_notify
+
+# Gap between the last written content and the top of a generated image
+_IMAGE_Y_GAP = 30.0
 
 # Pre-recorded audio: 16 kHz mono PCM, 16-bit. Played when image is generated.
 # Add your own file at this path or run scripts/generate_image_ok_audio.py
@@ -58,8 +63,8 @@ class MediaTools:
     async def generate_and_show_image(
         self,
         prompt: str,
-        x: float = 100.0,
-        y: float = 100.0,
+        x: float = 60.0,
+        y: float = -1.0,
         width: float = 400.0,
         height: float = 300.0,
     ) -> Dict[str, Any]:
@@ -71,9 +76,10 @@ class MediaTools:
         prompt:
             Detailed description of the image to generate.
         x:
-            Horizontal position on the canvas (default 100).
+            Horizontal position on the canvas (default 60).
         y:
-            Vertical position on the canvas (default 100).
+            Vertical position on the canvas (default -1 = auto-place below
+            existing board content so it never overlaps text or diagrams).
         width:
             Display width in pixels (default 400).
         height:
@@ -85,8 +91,32 @@ class MediaTools:
             Canvas command payload with the image element and file data,
             ready to be rendered on the Excalidraw whiteboard.
         """
+        # ── Auto-position below existing board content ────────────────────
+        if y < 0:
+            y = max(_ct._cursor_y + _IMAGE_Y_GAP, _ct._CURSOR_Y_INIT + _IMAGE_Y_GAP)
+
+        # ── Notify the frontend BEFORE the slow Gemini image API call ─────────
+        # The contextvar is set by main.py for each WebSocket session and
+        # propagates into ADK tool tasks via asyncio's context-copy mechanism.
+        notify = ws_notify.get()
+        if notify:
+            try:
+                notify({
+                    "type": "generating_image",
+                    "tool": "generate_and_show_image",
+                    "status": "started",
+                })
+            except Exception as _e:
+                pass  # never crash the tool over a notification failure
+
         image_b64 = await self.generate_image(prompt)
         if not image_b64:
+            # Clear the spinner if generation failed
+            if notify:
+                try:
+                    notify({"type": "generating_image", "status": "error"})
+                except Exception:
+                    pass
             # Same shape as canvas tools: status, tool, action, elements
             return {
                 "status": "error",
@@ -107,6 +137,10 @@ class MediaTools:
             height=height,
             mime_type="image/png",
         )
+
+        # Advance the shared text cursor below the image so subsequent
+        # write_text_on_canvas / plot_function calls don't overlap it.
+        _ct._cursor_y = max(_ct._cursor_y, y + height + _ct._TEXT_SPACING + 20)
 
         # Propagate everything from add_image_to_canvas, but stamp our tool name
         # so the frontend can identify which tool triggered the canvas update.

@@ -1,8 +1,11 @@
 import base64
+import io
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from PIL import Image, ImageDraw
 from google import genai
 from google.genai import types
 
@@ -18,6 +21,29 @@ _IMAGE_Y_GAP = 30.0
 _AUDIO_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "audio"
 _IMAGE_GENERATED_AUDIO_PATH = _AUDIO_ASSETS_DIR / "image_generated_successfully.pcm"
 _AUDIO_MIME = "audio/pcm;rate=16000"
+
+logger = logging.getLogger(__name__)
+
+# Corner radius (px) applied to generated images
+_CORNER_RADIUS = 20
+
+
+def _round_corners(image_bytes: bytes, radius: int = _CORNER_RADIUS) -> bytes:
+    """Apply rounded corners to an image and return PNG bytes."""
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+    w, h = img.size
+
+    # Create a rounded-rectangle alpha mask
+    mask = Image.new("L", (w, h), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle([0, 0, w, h], radius=radius, fill=255)
+
+    # Apply the mask as the alpha channel
+    img.putalpha(mask)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 class MediaTools:

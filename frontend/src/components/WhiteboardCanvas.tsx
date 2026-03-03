@@ -13,6 +13,35 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardR
 import "@excalidraw/excalidraw/index.css";
 import type { CanvasCommand, AnimationGroup } from "@/hooks/useWebSocket";
 
+// Corner radius applied to AI-generated images (px)
+const IMAGE_CORNER_RADIUS = 20;
+
+/**
+ * Draw the image onto an offscreen canvas with rounded-rect clipping,
+ * returning a new data URL with smooth corners baked into the pixels.
+ */
+async function roundImageCorners(dataURL: string, radius = IMAGE_CORNER_RADIUS): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d")!;
+
+      // Clip to a rounded rectangle
+      ctx.beginPath();
+      ctx.roundRect(0, 0, img.width, img.height, radius);
+      ctx.clip();
+
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve(dataURL); // fallback: return original
+    img.src = dataURL;
+  });
+}
+
 export interface WhiteboardCanvasRef {
   getSnapshot: () => Promise<string | null>;
 }
@@ -188,19 +217,29 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
 
         // Register image files BEFORE adding elements so Excalidraw can resolve fileIds
         if (cmd.files && typeof cmd.files === "object") {
-          const fileEntries = Object.values(cmd.files).map((f: any) => ({
+          const rawEntries = Object.values(cmd.files).map((f: any) => ({
             id: f.id,
-            dataURL: f.dataURL,
+            dataURL: f.dataURL as string,
             mimeType: f.mimeType,
             created: f.created || Date.now(),
           }));
-          if (fileEntries.length > 0) {
-            try {
-              api.addFiles(fileEntries);
-              console.log(`[Canvas] Registered ${fileEntries.length} file(s) with Excalidraw`);
-            } catch (err) {
-              console.warn("[Canvas] addFiles failed:", err);
-            }
+
+          // Apply rounded corners (async) then register with Excalidraw
+          if (rawEntries.length > 0) {
+            (async () => {
+              const fileEntries = await Promise.all(
+                rawEntries.map(async (entry) => ({
+                  ...entry,
+                  dataURL: await roundImageCorners(entry.dataURL),
+                }))
+              );
+              try {
+                api.addFiles(fileEntries);
+                console.log(`[Canvas] Registered ${fileEntries.length} file(s) with rounded corners`);
+              } catch (err) {
+                console.warn("[Canvas] addFiles failed:", err);
+              }
+            })();
           }
         }
 

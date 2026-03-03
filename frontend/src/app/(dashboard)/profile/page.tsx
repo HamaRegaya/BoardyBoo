@@ -251,7 +251,23 @@ function ProfileContent() {
                 <div className="prof-header-content">
                     <div className="prof-avatar-wrapper">
                         {displayPicture ? (
-                            <img src={displayPicture} alt={displayName} className="prof-avatar-img" />
+                            <>
+                                <img
+                                    src={displayPicture}
+                                    alt={displayName}
+                                    className="prof-avatar-img"
+                                    referrerPolicy="no-referrer"
+                                    onError={(e) => {
+                                        const img = e.currentTarget;
+                                        img.style.display = 'none';
+                                        const fallback = img.nextElementSibling as HTMLElement | null;
+                                        if (fallback) fallback.style.display = 'flex';
+                                    }}
+                                />
+                                <div className="prof-avatar-img" style={{ display: "none", alignItems: "center", justifyContent: "center", background: "var(--bg)", fontSize: 28, fontWeight: 700, color: "var(--text-sec)" }}>
+                                    {displayName.charAt(0).toUpperCase()}
+                                </div>
+                            </>
                         ) : (
                             <div className="prof-avatar-img" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", fontSize: 28, fontWeight: 700, color: "var(--text-sec)" }}>
                                 {displayName.charAt(0).toUpperCase()}

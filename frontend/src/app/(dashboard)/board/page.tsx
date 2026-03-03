@@ -145,6 +145,21 @@ export default function Page() {
     }
   }, [sendImage]);
 
+  // ── Auto-start mic when session connects ─────────────────────────────────
+
+  useEffect(() => {
+    if (status === "connected" && !isRecording) {
+      startRecording((pcmData: ArrayBuffer) => {
+        sendAudio(pcmData);
+      }).then(() => {
+        setIsRecording(true);
+      }).catch((err) => {
+        console.error("Failed to auto-start microphone:", err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   // ── Auto-snapshot (every 30 s) when connected ───────────────────────────
 
   useEffect(() => {
@@ -244,7 +259,7 @@ export default function Page() {
 
         {/* Side panel — transcript */}
         <div className="side-panel">
-          <TranscriptPanel messages={messages} onSendText={sendText} />
+          <TranscriptPanel messages={messages} onSendText={sendText} userPhotoURL={user?.photoURL || undefined} />
         </div>
       </div>
     </main>

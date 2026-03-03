@@ -206,6 +206,7 @@
     border-left: 1px solid var(--border);
     position: relative;
     transition: width 0.3s ease, min-width 0.3s ease;
+    overflow: visible;
 }
 
 .panel-container {
@@ -217,7 +218,13 @@
 
 .panel-container.collapsed {
     width: 0;
+    min-width: 0;
     overflow: hidden;
+}
+
+/* Shrink the outer side-panel when content is collapsed */
+.side-panel:has(.panel-container.collapsed) {
+    width: auto;
 }
 
 .panel-toggle {

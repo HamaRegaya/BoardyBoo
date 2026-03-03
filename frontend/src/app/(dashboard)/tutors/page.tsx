@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload } from "lucide-react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload, Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { useAuth } from "@/components/AuthProvider";
+import { API_URL } from "@/lib/constants";
 import "../dashboard.css";
 
 // --- Types & Data ---
@@ -31,94 +34,7 @@ export type Tutor = {
     styles: TeachingStyle[];
 };
 
-const INITIAL_TUTORS: Tutor[] = [
-    {
-        id: "guide",
-        name: "Prof. Algebra",
-        title: "Your rigorous math professor focused on deep understanding.",
-        desc: "Patient math expert specializing in Calculus and Geometry. Explains complex formulas step-by-step.",
-        status: "Active",
-        timeAgo: "2h ago",
-        avatar: "/personas/owl.png",
-        subjects: ["Mathematics"],
-        personality: "Strict",
-        level: "Advanced",
-        stats: { sessions: "853", rating: "4.8/5" },
-        styles: [
-            { icon: "socratic", name: "Socratic Method", desc: "Guides with questions rather than direct answers." },
-            { icon: "strict", name: "Structured", desc: "Follows a strict syllabus of progression." }
-        ],
-        tags: [{ label: "Math", color: "brand" }, { label: "Calculus", color: "gray" }]
-    },
-    {
-        id: "buddy",
-        name: "Madame Lingua",
-        title: "Native speaker focusing on conversational immersion.",
-        desc: "Native French speaker with a strict but effective immersion approach. Great for conversation practice.",
-        status: "Idle",
-        timeAgo: "1d ago",
-        avatar: "/personas/orb.png",
-        subjects: ["Languages"],
-        personality: "Strict",
-        level: "Intermediate",
-        stats: { sessions: "412", rating: "4.7/5" },
-        styles: [
-            { icon: "encouraging", name: "Immersion", desc: "Only speaks the target language for practice." }
-        ],
-        tags: [{ label: "French", color: "purple" }]
-    },
-    {
-        id: "codebot",
-        name: "Code Bot",
-        title: "Logical debug assistant and algorithm explainer.",
-        desc: "Expert in Python and JavaScript. Helps debug complex logic and explains algorithms visually.",
-        status: "Idle",
-        timeAgo: "3d ago",
-        placeholder: "CB",
-        subjects: ["Coding"],
-        personality: "Socratic",
-        level: "Beginner",
-        stats: { sessions: "1,102", rating: "4.9/5" },
-        styles: [
-            { icon: "socratic", name: "Visualizer", desc: "Breaks code down into logical flowcharts." }
-        ],
-        tags: [{ label: "Python", color: "yellow" }, { label: "Algorithm", color: "gray" }]
-    },
-    {
-        id: "nova",
-        name: "Ms. History",
-        title: "Storyteller making history vivid and personal.",
-        desc: "Specializes in World War II and Ancient Civilizations. Great storyteller to make history come alive.",
-        status: "New",
-        timeAgo: "Never",
-        avatar: "/personas/star.png",
-        subjects: ["History"],
-        personality: "Encouraging",
-        level: "Beginner",
-        stats: { sessions: "0", rating: "N/A" },
-        styles: [
-            { icon: "encouraging", name: "Storyteller", desc: "Uses narratives to explain historical events." }
-        ],
-        tags: [{ label: "WWII", color: "red" }]
-    },
-    {
-        id: "physics",
-        name: "Dr. Physics",
-        title: "Fun, relatable physics expert.",
-        desc: "Makes complex physics concepts fun and relatable with real-world examples and interactive tests.",
-        status: "Idle",
-        timeAgo: "1w ago",
-        placeholder: "DP",
-        subjects: ["Science"],
-        personality: "Humorous",
-        level: "Advanced",
-        stats: { sessions: "567", rating: "4.6/5" },
-        styles: [
-            { icon: "encouraging", name: "Practical", desc: "Uses everyday objects for experiments." }
-        ],
-        tags: [{ label: "Physics", color: "blue" }]
-    }
-];
+const INITIAL_TUTORS: Tutor[] = [];
 
 const SUBJECT_OPTIONS = ["Mathematics", "Science", "Languages", "Coding", "History"];
 const PERSONALITY_OPTIONS = ["Encouraging", "Strict", "Socratic", "Humorous"];
@@ -148,6 +64,8 @@ const VOICE_OPTIONS = [
 ];
 
 export default function TutorsPage() {
+    const { getToken } = useAuth();
+
     // --- State ---
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -155,6 +73,11 @@ export default function TutorsPage() {
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedTutor, setSelectedTutor] = useState<Tutor | null>(null);
+
+    // Tutors from backend
+    const [tutors, setTutors] = useState<Tutor[]>(INITIAL_TUTORS);
+    const [loading, setLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
 
     // Create-form state
     const [formName, setFormName] = useState("");
@@ -192,6 +115,97 @@ export default function TutorsPage() {
         setFormStyles(prev => prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key]);
     };
 
+    // ── API helpers ─────────────────────────────────────────
+    const apiToTutor = (raw: Record<string, any>): Tutor => ({
+        id: raw.id,
+        name: raw.name ?? "",
+        title: raw.title ?? "",
+        desc: raw.desc ?? "",
+        status: raw.status ?? "New",
+        timeAgo: raw.created_at ? timeAgo(raw.created_at) : "Never",
+        avatar: raw.avatar || undefined,
+        placeholder: raw.placeholder || (raw.name ? raw.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) : ""),
+        subjects: raw.subjects ?? [],
+        personality: raw.personality ?? "",
+        level: raw.level ?? "Intermediate",
+        stats: raw.stats ?? { sessions: "0", rating: "N/A" },
+        styles: raw.styles ?? [],
+        tags: raw.tags ?? [],
+    });
+
+    function timeAgo(iso: string): string {
+        const diff = Date.now() - new Date(iso).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ago`;
+        const days = Math.floor(hrs / 24);
+        if (days < 7) return `${days}d ago`;
+        return `${Math.floor(days / 7)}w ago`;
+    }
+
+    const fetchTutors = useCallback(async () => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await axios.get(`${API_URL}/api/tutors`, { headers: { Authorization: `Bearer ${token}` } });
+            setTutors((res.data as any[]).map(apiToTutor));
+        } catch (err) {
+            console.error("Failed to fetch tutors:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [getToken]);
+
+    useEffect(() => { fetchTutors(); }, [fetchTutors]);
+
+    const handleCreateTutor = async () => {
+        if (!formName.trim() || !formSubject || !formPersonality) return;
+        setCreating(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const tagsArr = formTags.split(",").map(t => t.trim()).filter(Boolean).map(t => ({ label: t, color: "gray" }));
+            const stylesArr = formStyles.map(key => {
+                const opt = TEACHING_STYLE_OPTIONS.find(o => o.key === key);
+                return opt ? { icon: opt.key, name: opt.name, desc: opt.desc } : { icon: key, name: key, desc: "" };
+            });
+            const payload = {
+                name: formName,
+                title: formTitle,
+                desc: formDesc,
+                avatar: formAvatar,
+                placeholder: formAvatar ? "" : formName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2),
+                subjects: [formSubject],
+                personality: formPersonality,
+                level: formLevel,
+                voice: formVoice,
+                tags: tagsArr,
+                styles: stylesArr,
+            };
+            const res = await axios.post(`${API_URL}/api/tutors`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            setTutors(prev => [...prev, apiToTutor(res.data)]);
+            setShowCreateModal(false);
+            resetCreateForm();
+        } catch (err) {
+            console.error("Failed to create tutor:", err);
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const handleDeleteTutor = async (id: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await axios.delete(`${API_URL}/api/tutors/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+            setTutors(prev => prev.filter(t => t.id !== id));
+            setSelectedTutor(null);
+        } catch (err) {
+            console.error("Failed to delete tutor:", err);
+        }
+    };
+
     // Filter toggles
     const toggleSubject = (subj: string) => {
         setSelectedSubjects(prev =>
@@ -213,13 +227,13 @@ export default function TutorsPage() {
 
     // Derived filtering logic
     const filteredTutors = useMemo(() => {
-        return INITIAL_TUTORS.filter(tutor => {
+        return tutors.filter(tutor => {
             const matchesSearch = tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) || tutor.desc.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesSubject = selectedSubjects.length === 0 || tutor.subjects.some(s => selectedSubjects.includes(s));
             const matchesPersonality = selectedPersonalities.length === 0 || selectedPersonalities.includes(tutor.personality);
             return matchesSearch && matchesSubject && matchesPersonality;
         });
-    }, [searchQuery, selectedSubjects, selectedPersonalities]);
+    }, [searchQuery, selectedSubjects, selectedPersonalities, tutors]);
 
     // Helpers
     const getSubjectIcon = (subject: string) => {
@@ -281,6 +295,11 @@ export default function TutorsPage() {
                         <div className="dash-mastery-grid" style={{
                             display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px'
                         }}>
+                            {loading ? (
+                                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+                                    <Loader2 size={32} className="animate-spin" style={{ color: 'var(--primary)' }} />
+                                </div>
+                            ) : (
                             <AnimatePresence mode="popLayout">
                                 {filteredTutors.map(tutor => (
                                     <motion.div
@@ -334,12 +353,23 @@ export default function TutorsPage() {
 
                                 {filteredTutors.length === 0 && (
                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '20px' }}>
-                                        <Search size={32} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-                                        <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No tutors found</h3>
-                                        <p style={{ color: 'var(--text-muted)' }}>Try adjusting your filters or search query.</p>
+                                        {tutors.length === 0 ? (
+                                            <>
+                                                <Plus size={32} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                                                <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No tutors yet</h3>
+                                                <p style={{ color: 'var(--text-muted)' }}>Create your first AI tutor to get started!</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Search size={32} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                                                <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>No tutors found</h3>
+                                                <p style={{ color: 'var(--text-muted)' }}>Try adjusting your filters or search query.</p>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -526,6 +556,9 @@ export default function TutorsPage() {
                                             <Link href="/board" onClick={() => setSelectedTutor(null)} style={{ background: 'var(--primary)', color: 'white', padding: '16px 24px', borderRadius: '12px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }} className="hover:-translate-y-1 hover:bg-[#4338ca]">
                                                 Start Learning Session <ArrowRight size={18} />
                                             </Link>
+                                            <button onClick={() => handleDeleteTutor(selectedTutor.id)} style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                                <Trash2 size={16} /> Delete Tutor
+                                            </button>
                                         </div>
 
                                     </div>
@@ -805,8 +838,8 @@ export default function TutorsPage() {
 
                                     {/* ── Actions ─────────────────────────────── */}
                                     <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
-                                        <button className="btn-resume" style={{ flex: 1, justifyContent: 'center', border: 'none', padding: '16px', cursor: 'pointer', fontSize: '15px', fontWeight: 700 }} onClick={() => { setShowCreateModal(false); resetCreateForm(); }}>
-                                            <Sparkles size={18} /> Generate Tutor
+                                        <button className="btn-resume" style={{ flex: 1, justifyContent: 'center', border: 'none', padding: '16px', cursor: 'pointer', fontSize: '15px', fontWeight: 700, opacity: creating ? 0.6 : 1, pointerEvents: creating ? 'none' : 'auto' }} onClick={handleCreateTutor}>
+                                            {creating ? <><Loader2 size={18} className="animate-spin" /> Creating...</> : <><Sparkles size={18} /> Generate Tutor</>}
                                         </button>
                                         <button onClick={() => { setShowCreateModal(false); resetCreateForm(); }} style={{ padding: '16px 24px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-muted)', fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}>
                                             Cancel

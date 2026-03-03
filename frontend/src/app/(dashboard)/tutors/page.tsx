@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -168,10 +168,24 @@ export default function TutorsPage() {
     const [formDesc, setFormDesc] = useState("");
     const [formTags, setFormTags] = useState("");
 
+    // Dropdown open state
+    const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setOpenDropdown(null);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const resetCreateForm = () => {
         setFormName(""); setFormTitle(""); setFormSubject(""); setFormPersonality("");
         setFormAvatar(AVATAR_OPTIONS[0].src); setFormStyles([]); setFormLevel("Intermediate");
-        setFormVoice("default"); setFormDesc(""); setFormTags("");
+        setFormVoice("default"); setFormDesc(""); setFormTags(""); setOpenDropdown(null);
     };
 
     const toggleFormStyle = (key: string) => {
@@ -603,26 +617,57 @@ export default function TutorsPage() {
                                     </div>
 
                                     {/* ── Subject & Personality Row ──────────── */}
-                                    <div style={{ display: 'flex', gap: '16px' }}>
-                                        <div style={{ flex: 1 }}>
+                                    <div ref={dropdownRef} style={{ display: 'flex', gap: '16px' }}>
+                                        <div style={{ flex: 1, position: 'relative' }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Subject Expertise *</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <select value={formSubject} onChange={e => setFormSubject(e.target.value)} style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', appearance: 'none', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer' }}>
-                                                    <option value="" disabled>Select subject</option>
-                                                    {SUBJECT_OPTIONS.map(opt => <option key={opt}>{opt}</option>)}
-                                                </select>
-                                                <ChevronDown size={16} color="var(--text-muted)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                                            </div>
+                                            <button type="button" onClick={() => setOpenDropdown(openDropdown === 'subject' ? null : 'subject')}
+                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: openDropdown === 'subject' ? '1.5px solid var(--primary)' : '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', color: formSubject ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', transition: 'border 0.2s, box-shadow 0.2s', boxShadow: openDropdown === 'subject' ? '0 0 0 3px rgba(79,70,229,0.1)' : 'none' }}>
+                                                <span>{formSubject || 'Select subject'}</span>
+                                                <motion.span animate={{ rotate: openDropdown === 'subject' ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown size={16} color="var(--text-muted)" /></motion.span>
+                                            </button>
+                                            <AnimatePresence>
+                                                {openDropdown === 'subject' && (
+                                                    <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.15 }}
+                                                        style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, overflow: 'hidden', padding: '4px' }}>
+                                                        {SUBJECT_OPTIONS.map(opt => (
+                                                            <button key={opt} type="button" onClick={() => { setFormSubject(opt); setOpenDropdown(null); }}
+                                                                style={{ width: '100%', padding: '11px 14px', border: 'none', background: formSubject === opt ? '#eef2ff' : 'transparent', color: formSubject === opt ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formSubject === opt ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
+                                                                onMouseEnter={e => { if (formSubject !== opt) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-main)'; }}
+                                                                onMouseLeave={e => { if (formSubject !== opt) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{getSubjectIcon(opt)} {opt}</span>
+                                                                {formSubject === opt && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
+                                                            </button>
+                                                        ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ flex: 1, position: 'relative' }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Personality Style *</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <select value={formPersonality} onChange={e => setFormPersonality(e.target.value)} style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', appearance: 'none', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer' }}>
-                                                    <option value="" disabled>Select style</option>
-                                                    {PERSONALITY_OPTIONS.map(opt => <option key={opt}>{opt}</option>)}
-                                                </select>
-                                                <ChevronDown size={16} color="var(--text-muted)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                                            </div>
+                                            <button type="button" onClick={() => setOpenDropdown(openDropdown === 'personality' ? null : 'personality')}
+                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: openDropdown === 'personality' ? '1.5px solid var(--primary)' : '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', color: formPersonality ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', transition: 'border 0.2s, box-shadow 0.2s', boxShadow: openDropdown === 'personality' ? '0 0 0 3px rgba(79,70,229,0.1)' : 'none' }}>
+                                                <span>{formPersonality || 'Select style'}</span>
+                                                <motion.span animate={{ rotate: openDropdown === 'personality' ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown size={16} color="var(--text-muted)" /></motion.span>
+                                            </button>
+                                            <AnimatePresence>
+                                                {openDropdown === 'personality' && (
+                                                    <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.15 }}
+                                                        style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, overflow: 'hidden', padding: '4px' }}>
+                                                        {PERSONALITY_OPTIONS.map(opt => {
+                                                            const icons: Record<string, React.ReactNode> = { Encouraging: <Heart size={16} className="text-rose-500" />, Strict: <GraduationCap size={16} className="text-blue-500" />, Socratic: <Lightbulb size={16} className="text-amber-500" />, Humorous: <Sparkles size={16} className="text-purple-500" /> };
+                                                            return (
+                                                                <button key={opt} type="button" onClick={() => { setFormPersonality(opt); setOpenDropdown(null); }}
+                                                                    style={{ width: '100%', padding: '11px 14px', border: 'none', background: formPersonality === opt ? '#eef2ff' : 'transparent', color: formPersonality === opt ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formPersonality === opt ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
+                                                                    onMouseEnter={e => { if (formPersonality !== opt) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-main)'; }}
+                                                                    onMouseLeave={e => { if (formPersonality !== opt) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{icons[opt]} {opt}</span>
+                                                                    {formPersonality === opt && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     </div>
 
@@ -692,10 +737,27 @@ export default function TutorsPage() {
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Volume2 size={14} /> Voice Tone</span>
                                             </label>
                                             <div style={{ position: 'relative' }}>
-                                                <select value={formVoice} onChange={e => setFormVoice(e.target.value)} style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', appearance: 'none', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer' }}>
-                                                    {VOICE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                                </select>
-                                                <ChevronDown size={16} color="var(--text-muted)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                                <button type="button" onClick={() => setOpenDropdown(openDropdown === 'voice' ? null : 'voice')}
+                                                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: openDropdown === 'voice' ? '1.5px solid var(--primary)' : '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', transition: 'border 0.2s, box-shadow 0.2s', boxShadow: openDropdown === 'voice' ? '0 0 0 3px rgba(79,70,229,0.1)' : 'none' }}>
+                                                    <span>{VOICE_OPTIONS.find(v => v.value === formVoice)?.label ?? 'Default'}</span>
+                                                    <motion.span animate={{ rotate: openDropdown === 'voice' ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown size={16} color="var(--text-muted)" /></motion.span>
+                                                </button>
+                                                <AnimatePresence>
+                                                    {openDropdown === 'voice' && (
+                                                        <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.15 }}
+                                                            style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, overflow: 'hidden', padding: '4px' }}>
+                                                            {VOICE_OPTIONS.map(opt => (
+                                                                <button key={opt.value} type="button" onClick={() => { setFormVoice(opt.value); setOpenDropdown(null); }}
+                                                                    style={{ width: '100%', padding: '11px 14px', border: 'none', background: formVoice === opt.value ? '#eef2ff' : 'transparent', color: formVoice === opt.value ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formVoice === opt.value ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
+                                                                    onMouseEnter={e => { if (formVoice !== opt.value) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-main)'; }}
+                                                                    onMouseLeave={e => { if (formVoice !== opt.value) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                                                                    <span>{opt.label}</span>
+                                                                    {formVoice === opt.value && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
+                                                                </button>
+                                                            ))}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
                                         </div>
                                         <div style={{ flex: 1 }}>

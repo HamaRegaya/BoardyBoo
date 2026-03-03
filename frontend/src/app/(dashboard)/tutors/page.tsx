@@ -556,13 +556,13 @@ export default function TutorsPage() {
                                                     style={{
                                                         width: '72px', height: '72px', borderRadius: '50%', border: formAvatar === opt.src ? '3px solid var(--primary)' : '2px solid var(--border-color)',
                                                         background: formAvatar === opt.src ? '#e0e7ff' : 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        cursor: 'pointer', position: 'relative', overflow: 'hidden', padding: 0, transition: 'border 0.2s, background 0.2s',
+                                                        cursor: 'pointer', position: 'relative', overflow: 'visible', padding: 0, transition: 'border 0.2s, background 0.2s',
                                                         boxShadow: formAvatar === opt.src ? '0 0 0 4px rgba(79,70,229,0.15)' : 'none'
                                                     }}
                                                 >
                                                     <Image src={opt.src} alt={opt.label} width={56} height={56} style={{ objectFit: 'contain' }} />
                                                     {formAvatar === opt.src && (
-                                                        <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '22px', height: '22px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
+                                                        <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2.5px solid white', zIndex: 2, boxShadow: '0 2px 6px rgba(79,70,229,0.3)' }}>
                                                             <Check size={12} color="white" strokeWidth={3} />
                                                         </div>
                                                     )}

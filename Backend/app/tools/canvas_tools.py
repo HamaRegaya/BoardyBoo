@@ -32,6 +32,152 @@ _cursor_y: float = 60.0    # current vertical cursor position
 _CURSOR_Y_INIT: float = 60.0
 
 
+
+# ── Math symbol normalisation ─────────────────────────────────────────────────
+# Converts LaTeX / ASCII math shorthands -> proper Unicode so text displays
+# correctly on the Excalidraw canvas without any LaTeX renderer.
+# All replacement strings use \uXXXX escapes (ASCII-safe) to avoid
+# Windows cp1252 file-encoding corruption of multi-byte Unicode literals.
+
+import re as _re
+
+# Superscript digit map for ^ exponents
+_SUP_MAP = str.maketrans(
+    "0123456789+-=()nij",
+    "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079"
+    "\u207a\u207b\u207c\u207d\u207e\u207f\u2071\u02b2",
+)
+# Subscript digit map for _ subscripts
+_SUB_MAP = str.maketrans(
+    "0123456789+-=()",
+    "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089"
+    "\u208a\u208b\u208c\u208d\u208e",
+)
+
+# LaTeX command -> Unicode  (all replacements use \uXXXX escapes)
+_LATEX_CMDS: list[tuple[str, str]] = [
+    # Greek lowercase
+    (r'\\alpha',         '\u03b1'), (r'\\beta',        '\u03b2'),
+    (r'\\gamma',         '\u03b3'), (r'\\delta',        '\u03b4'),
+    (r'\\varepsilon',    '\u03b5'), (r'\\epsilon',      '\u03b5'),
+    (r'\\zeta',          '\u03b6'), (r'\\eta',          '\u03b7'),
+    (r'\\vartheta',      '\u03b8'), (r'\\theta',        '\u03b8'),
+    (r'\\iota',          '\u03b9'), (r'\\kappa',        '\u03ba'),
+    (r'\\lambda',        '\u03bb'), (r'\\mu',           '\u03bc'),
+    (r'\\nu',            '\u03bd'), (r'\\xi',           '\u03be'),
+    (r'\\varpi',         '\u03c0'), (r'\\pi',           '\u03c0'),
+    (r'\\varrho',        '\u03c1'), (r'\\rho',          '\u03c1'),
+    (r'\\varsigma',      '\u03c2'), (r'\\sigma',        '\u03c3'),
+    (r'\\tau',           '\u03c4'), (r'\\upsilon',      '\u03c5'),
+    (r'\\varphi',        '\u03c6'), (r'\\phi',          '\u03c6'),
+    (r'\\chi',           '\u03c7'), (r'\\psi',          '\u03c8'),
+    (r'\\omega',         '\u03c9'),
+    # Greek uppercase
+    (r'\\Gamma',         '\u0393'), (r'\\Delta',        '\u0394'),
+    (r'\\Theta',         '\u0398'), (r'\\Lambda',       '\u039b'),
+    (r'\\Xi',            '\u039e'), (r'\\Pi',           '\u03a0'),
+    (r'\\Sigma',         '\u03a3'), (r'\\Upsilon',      '\u03a5'),
+    (r'\\Phi',           '\u03a6'), (r'\\Psi',          '\u03a8'),
+    (r'\\Omega',         '\u03a9'),
+    # Operators / relations
+    (r'\\infty',         '\u221e'), (r'\\pm',           '\u00b1'),
+    (r'\\mp',            '\u2213'), (r'\\times',        '\u00d7'),
+    (r'\\div',           '\u00f7'), (r'\\cdot',         '\u00b7'),
+    (r'\\leq',           '\u2264'), (r'\\geq',          '\u2265'),
+    (r'\\neq',           '\u2260'), (r'\\approx',       '\u2248'),
+    (r'\\equiv',         '\u2261'), (r'\\sim',          '~'),
+    (r'\\subset',        '\u2282'), (r'\\supset',       '\u2283'),
+    (r'\\notin',         '\u2209'), (r'\\in',           '\u2208'),
+    (r'\\cup',           '\u222a'), (r'\\cap',          '\u2229'),
+    (r'\\forall',        '\u2200'), (r'\\exists',       '\u2203'),
+    (r'\\nabla',         '\u2207'), (r'\\partial',      '\u2202'),
+    (r'\\sum',           '\u03a3'), (r'\\prod',         '\u03a0'),
+    (r'\\int',           '\u222b'), (r'\\oint',         '\u222e'),
+    # sqrt without braces (braced form handled separately before this list)
+    (r'\\sqrt(?!\{)',    '\u221a'),
+    (r'\\ldots',         '\u2026'), (r'\\cdots',        '\u2026'),
+    (r'\\leftrightarrow','\u2194'), (r'\\Rightarrow',   '\u21d2'),
+    (r'\\Leftarrow',     '\u21d0'), (r'\\rightarrow',   '\u2192'),
+    (r'\\leftarrow',     '\u2190'), (r'\\to',           '\u2192'),
+    (r'\\circ',          '\u2218'), (r'\\bullet',       '\u2022'),
+    (r'\\star',          '\u2605'),
+]
+
+
+def _apply_sup(match: _re.Match) -> str:  # type: ignore[type-arg]
+    """Convert a ^{...} or ^x exponent to Unicode superscript chars."""
+    body = match.group(1) if match.group(1) is not None else match.group(2)
+    translated = body.translate(_SUP_MAP)
+    # Fall back to parenthesised form for chars not in the map
+    if any(c == body[i] for i, c in enumerate(translated) if c not in _SUP_MAP.values()):
+        return f"^({body})" if len(body) > 1 else f"^{body}"
+    return translated
+
+
+def _apply_sub(match: _re.Match) -> str:  # type: ignore[type-arg]
+    """Convert a _{...} or _x subscript to Unicode subscript chars."""
+    body = match.group(1) if match.group(1) is not None else match.group(2)
+    translated = body.translate(_SUB_MAP)
+    return translated
+
+
+def _normalize_math_text(text: str) -> str:
+    """Convert LaTeX / ASCII math notation to plain Unicode for canvas display."""
+    # 1. Strip outer LaTeX math delimiters: $...$, $$...$$, \[...\], \(...\)
+    text = _re.sub(r'\$\$(.+?)\$\$', r'\1', text, flags=_re.DOTALL)
+    text = _re.sub(r'\$(.+?)\$',     r'\1', text, flags=_re.DOTALL)
+    text = _re.sub(r'\\\[(.+?)\\\]', r'\1', text, flags=_re.DOTALL)
+    text = _re.sub(r'\\\((.+?)\\\)', r'\1', text, flags=_re.DOTALL)
+
+    # 2. \sqrt{expr} -> sqrt-symbol + expr  (handle braced form first)
+    text = _re.sub(r'\\sqrt\s*\{([^}]*)\}', '\u221a' + r'\1', text)
+    # \sqrt x  (no braces, single token)
+    text = _re.sub(r'\\sqrt\s+(\S)',         '\u221a' + r'\1', text)
+
+    # 3. \frac{num}{den} -> (num)/(den)
+    text = _re.sub(r'\\frac\s*\{([^}]*)\}\s*\{([^}]*)\}', r'(\1)/(\2)', text)
+
+    # 4. All other LaTeX commands -> Unicode
+    for pattern, replacement in _LATEX_CMDS:
+        text = _re.sub(pattern, replacement, text)
+
+    # 5. ^{exponent} or ^x  ->  superscript Unicode
+    text = _re.sub(r'\^\{([^}]*)\}', lambda m: m.group(1).translate(_SUP_MAP), text)
+    text = _re.sub(r'\^([0-9nij])',  lambda m: m.group(1).translate(_SUP_MAP), text)
+
+    # 6. _{subscript} or _x  ->  subscript Unicode
+    text = _re.sub(r'_\{([^}]*)\}', lambda m: m.group(1).translate(_SUB_MAP), text)
+    text = _re.sub(r'_([0-9])',      lambda m: m.group(1).translate(_SUB_MAP), text)
+
+    # 7. Plain-English / ASCII fallbacks (word-boundary safe, case-insensitive)
+    _plain_subs: list[tuple[str, str]] = [
+        (r'\bsqrt\s*\(', '\u221a('),
+        (r'\bsqrt\b',    '\u221a'),
+        (r'\bpi\b',      '\u03c0'),
+        (r'\binfinity\b','\u221e'),
+        (r'\binf\b',     '\u221e'),
+        (r'\binfty\b',   '\u221e'),
+        (r'\balpha\b',   '\u03b1'), (r'\bbeta\b',   '\u03b2'),
+        (r'\bgamma\b',   '\u03b3'), (r'\bdelta\b',  '\u03b4'),
+        (r'\btheta\b',   '\u03b8'), (r'\blambda\b', '\u03bb'),
+        (r'\bmu\b',      '\u03bc'), (r'\bsigma\b',  '\u03c3'),
+        (r'\bphi\b',     '\u03c6'), (r'\bomega\b',  '\u03c9'),
+        (r'!=',          '\u2260'),
+        (r'<=',          '\u2264'),
+        (r'>=',          '\u2265'),
+        (r'~=',          '\u2248'),
+        (r'\*\*2\b',     '\u00b2'),
+        (r'\*\*3\b',     '\u00b3'),
+    ]
+    for pattern, replacement in _plain_subs:
+        text = _re.sub(pattern, replacement, text, flags=_re.IGNORECASE)
+
+    # 8. Remove any leftover lone braces from LaTeX grouping
+    text = _re.sub(r'(?<!\\)[{}]', '', text)
+
+    return text
+
+
 def _measure_text_width(text: str, font_size: int) -> float:
     """Estimate the rendered pixel width for a single line of text.
 
@@ -164,6 +310,9 @@ def write_text_on_canvas(
     """
     global _cursor_y
 
+    # Normalise ASCII math shorthands → Unicode symbols
+    text = _normalize_math_text(text)
+
     # Auto-position: place below the last text written
     if y < 0:
         y = _cursor_y
@@ -215,6 +364,10 @@ def draw_diagram(
     """
     items = items or []
     elements: List[Dict[str, Any]] = []
+
+    # Normalise math symbols in title and all items
+    title = _normalize_math_text(title)
+    items = [_normalize_math_text(it) for it in items]
 
     # Title element
     if title:

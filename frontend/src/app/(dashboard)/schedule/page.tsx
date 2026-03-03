@@ -16,10 +16,14 @@ import {
     Play,
     User,
     BookOpen,
+    Loader2,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { useAuth } from "@/components/AuthProvider";
+import { API_URL } from "@/lib/constants";
 import "../dashboard.css";
 import "./schedule.css";
 
@@ -51,20 +55,16 @@ type Suggestion = {
     subject: SubjectClass;
 };
 
+type StudyPlan = {
+    id: string;
+    title: string;
+    description?: string;
+    subject?: string;
+    due_date?: string;
+    created_at?: string;
+};
+
 /* ─── Constants ──────────────────────────────────────────── */
-
-const INITIAL_SESSIONS: Session[] = [
-    { id: "1", title: "Calculus Limits", tutor: "Prof. Algebra", avatar: "/personas/owl.png", day: 1, startTime: 10, duration: 2, type: "manual", subjectClass: "math", description: "Deep-dive into epsilon-delta proofs and L'Hôpital's rule." },
-    { id: "2", title: "Kinematics Review", tutor: "Dr. Physics", avatar: "/personas/orb.png", day: 2, startTime: 14, duration: 1.5, type: "manual", subjectClass: "science", description: "Reviewing projectile motion and free-fall kinematics." },
-    { id: "3", title: "French Conversation", tutor: "Madame Lingua", avatar: "/personas/star.png", day: 3, startTime: 16, duration: 1, type: "ai-suggested", subjectClass: "languages", description: "AI-suggested conversational practice for upcoming oral exam." },
-    { id: "4", title: "WW2 Causes", tutor: "Ms. History", avatar: "/personas/owl.png", day: 4, startTime: 11, duration: 1.5, type: "manual", subjectClass: "history", description: "Treaty of Versailles and the rise of fascism." },
-    { id: "5", title: "JavaScript Promises", tutor: "Code Bot", avatar: "/personas/orb.png", day: 5, startTime: 15, duration: 2, type: "ai-suggested", subjectClass: "science", description: "Async fundamentals — promises, async/await, and error handling." },
-];
-
-const INITIAL_SUGGESTIONS: Suggestion[] = [
-    { id: "s1", title: "Derivatives Practice", tutor: "Prof. Algebra", avatar: "/personas/owl.png", duration: "45 min", durationHours: 0.75, reason: "Based on recent struggles with chain rule", subject: "math" },
-    { id: "s2", title: "Newton's 3rd Law", tutor: "Dr. Physics", avatar: "/personas/orb.png", duration: "1 hour", durationHours: 1, reason: "Preparation for upcoming midterm", subject: "science" },
-];
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -86,6 +86,13 @@ const TUTOR_OPTIONS = [
     { value: "Madame Lingua", avatar: "/personas/star.png" },
     { value: "Code Bot", avatar: "/personas/orb.png" },
 ];
+
+const SUBJECT_COLORS: Record<string, string> = {
+    math: "#4f46e5",
+    science: "#10b981",
+    history: "#f97316",
+    languages: "#a855f7",
+};
 
 /* ─── Helpers ────────────────────────────────────────────── */
 
@@ -115,11 +122,6 @@ function isSameDay(a: Date, b: Date): boolean {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-let nextId = 100;
-function genId() {
-    return `sess-${nextId++}`;
-}
-
 const subjectColors: Record<string, { bg: string; border: string; text: string }> = {
     math: { bg: "#e0e7ff", border: "#4f46e5", text: "#4338ca" },
     science: { bg: "#d1fae5", border: "#10b981", text: "#047857" },
@@ -144,11 +146,39 @@ function getSubjectColorStyles(subject: string, isAI: boolean) {
     };
 }
 
+/* ─── Backend → Frontend mapper ──────────────────────────── */
+
+function apiSessionToLocal(raw: Record<string, any>): Session {
+    const dt = raw.start_time ? new Date(raw.start_time) : new Date();
+    return {
+        id: raw.id,
+        title: raw.title ?? "",
+        tutor: raw.tutor ?? "",
+        avatar: raw.avatar || "/personas/owl.png",
+        day: dt.getDay(),
+        startTime: dt.getHours(),
+        duration: raw.duration_hours ?? 1,
+        type: (raw.session_type as Session["type"]) ?? "manual",
+        subjectClass: (raw.subject_class as SubjectClass) ?? (raw.subject as SubjectClass) ?? "math",
+        description: raw.description ?? "",
+    };
+}
+
+/** Convert the grid day-of-week + hour into an ISO datetime on the given week. */
+function buildISOTime(weekDates: Date[], day: number, hour: number): string {
+    const base = weekDates[day] ?? new Date();
+    const d = new Date(base);
+    d.setHours(hour, 0, 0, 0);
+    return d.toISOString();
+}
+
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════════════════ */
 
 export default function SchedulePage() {
+    const { getToken } = useAuth();
+
     // ── Core state ─────────────────────────────────────────
     const today = useMemo(() => new Date(), []);
     const [weekStart, setWeekStart] = useState(() => getMonday(today));
@@ -157,9 +187,11 @@ export default function SchedulePage() {
     const [subjectFilter, setSubjectFilter] = useState<SubjectClass | "all">("all");
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
-    // Sessions & suggestions live in state so we can add/remove
-    const [sessions, setSessions] = useState<Session[]>(INITIAL_SESSIONS);
-    const [suggestions, setSuggestions] = useState<Suggestion[]>(INITIAL_SUGGESTIONS);
+    // Sessions, suggestions, goals from backend
+    const [sessions, setSessions] = useState<Session[]>([]);
+    const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+    const [goals, setGoals] = useState<StudyPlan[]>([]);
+    const [loading, setLoading] = useState(true);
 
     // UI overlays
     const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -184,6 +216,34 @@ export default function SchedulePage() {
     // Compute week dates array
     const weekDates = useMemo(() => DAYS.map((_, i) => addDays(weekStart, i)), [weekStart]);
 
+    // ── Fetch data from backend ────────────────────────────
+    const fetchSchedule = useCallback(async () => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const headers = { Authorization: `Bearer ${token}` };
+            const [schedRes, goalsRes] = await Promise.allSettled([
+                axios.get(`${API_URL}/api/schedule`, { headers }),
+                axios.get(`${API_URL}/api/dashboard/study-plans`, { headers }),
+            ]);
+            if (schedRes.status === "fulfilled") {
+                const mapped = (schedRes.value.data as any[]).map(apiSessionToLocal);
+                setSessions(mapped);
+            }
+            if (goalsRes.status === "fulfilled") {
+                setGoals(goalsRes.value.data ?? []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch schedule:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [getToken]);
+
+    useEffect(() => {
+        fetchSchedule();
+    }, [fetchSchedule]);
+
     // ── Navigation ─────────────────────────────────────────
     const goToPrevWeek = () => setWeekStart(prev => addDays(prev, -7));
     const goToNextWeek = () => setWeekStart(prev => addDays(prev, 7));
@@ -207,20 +267,49 @@ export default function SchedulePage() {
         return list;
     }, [sessions, showAISuggestions, subjectFilter]);
 
-    // ── Session CRUD ───────────────────────────────────────
-    const addSession = useCallback((s: Omit<Session, "id">) => {
-        setSessions(prev => [...prev, { ...s, id: genId() }]);
-    }, []);
+    // ── Session CRUD (wired to backend) ──────────────────
+    const addSession = useCallback(async (s: Omit<Session, "id">) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const headers = { Authorization: `Bearer ${token}` };
+            const tutorInfo = TUTOR_OPTIONS.find(t => t.value === s.tutor) ?? TUTOR_OPTIONS[0];
+            const payload = {
+                title: s.title,
+                subject: s.subjectClass,
+                tutor: s.tutor,
+                avatar: tutorInfo.avatar,
+                description: s.description ?? "",
+                start_time: buildISOTime(weekDates, s.day, s.startTime),
+                duration_hours: s.duration,
+                session_type: s.type,
+                subject_class: s.subjectClass,
+            };
+            const res = await axios.post(`${API_URL}/api/schedule`, payload, { headers });
+            const newSession = apiSessionToLocal(res.data);
+            setSessions(prev => [...prev, newSession]);
+        } catch (err) {
+            console.error("Failed to create session:", err);
+        }
+    }, [getToken, weekDates]);
 
-    const deleteSession = useCallback((id: string) => {
-        setSessions(prev => prev.filter(s => s.id !== id));
-        setSelectedSession(null);
-    }, []);
+    const deleteSession = useCallback(async (id: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const headers = { Authorization: `Bearer ${token}` };
+            await axios.delete(`${API_URL}/api/schedule/${id}`, { headers });
+            setSessions(prev => prev.filter(s => s.id !== id));
+            setSelectedSession(null);
+        } catch (err) {
+            console.error("Failed to delete session:", err);
+        }
+    }, [getToken]);
 
-    const addSuggestionToSchedule = useCallback((sug: Suggestion) => {
+    const addSuggestionToSchedule = useCallback(async (sug: Suggestion) => {
         const freeDays = [1, 2, 3, 4, 5].filter(d => !sessions.some(s => s.day === d && s.startTime === 10));
         const chosenDay = freeDays.length > 0 ? freeDays[0] : 1;
-        addSession({
+        await addSession({
             title: sug.title,
             tutor: sug.tutor,
             avatar: sug.avatar,
@@ -257,10 +346,10 @@ export default function SchedulePage() {
         setShowBookingModal(true);
     };
 
-    const submitBooking = () => {
+    const submitBooking = async () => {
         if (!bookTitle.trim()) return;
         const tutorInfo = TUTOR_OPTIONS.find(t => t.value === bookTutor) ?? TUTOR_OPTIONS[0];
-        addSession({
+        await addSession({
             title: bookTitle,
             tutor: bookTutor,
             avatar: tutorInfo.avatar,
@@ -285,6 +374,14 @@ export default function SchedulePage() {
     }, [weekDates, today]);
 
     /* ═══ RENDER ═══════════════════════════════════════════ */
+    if (loading) {
+        return (
+            <div className="dash-page" style={{ padding: "40px 48px", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
+                <Loader2 className="animate-spin text-indigo-500" size={36} />
+            </div>
+        );
+    }
+
     return (
         <div className="dash-page" style={{ padding: "40px 48px" }}>
             {/* ── Header ──────────────────────────────────────── */}
@@ -537,20 +634,20 @@ export default function SchedulePage() {
                     <div className="dash-sidebar-card">
                         <h2 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 16px" }}>Upcoming Goals</h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            <div style={{ display: "flex", gap: "12px" }}>
-                                <div style={{ width: "4px", borderRadius: "4px", background: "#f97316" }} />
-                                <div>
-                                    <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>Physics Midterm</h4>
-                                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>Friday, Mar 6 • Covers Ch 1-4</p>
+                            {goals.length === 0 && (
+                                <p style={{ fontSize: "13px", color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>No study plans yet.</p>
+                            )}
+                            {goals.slice(0, 5).map((g) => (
+                                <div key={g.id} style={{ display: "flex", gap: "12px" }}>
+                                    <div style={{ width: "4px", borderRadius: "4px", background: SUBJECT_COLORS[g.subject ?? ""] ?? "#64748b" }} />
+                                    <div>
+                                        <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>{g.title}</h4>
+                                        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
+                                            {g.due_date ? new Date(g.due_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : (g.description ?? "")}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div style={{ display: "flex", gap: "12px" }}>
-                                <div style={{ width: "4px", borderRadius: "4px", background: "#a855f7" }} />
-                                <div>
-                                    <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>French Oral Exam</h4>
-                                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>Next Monday • Conversational</p>
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>

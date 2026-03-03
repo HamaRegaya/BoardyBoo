@@ -34,7 +34,7 @@ from firebase_admin import auth as firebase_auth
 
 from app.agents.tutor_agent import build_tutor_agent
 from app.config import settings
-from app.routers import users, dashboard
+from app.routers import users, dashboard, schedule
 from app.utils.errors import (
     ErrorCategory,
     ErrorPayload,
@@ -91,6 +91,7 @@ app = FastAPI(
 
 app.include_router(users.router)
 app.include_router(dashboard.router)
+app.include_router(schedule.router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -15,6 +15,7 @@ import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -151,6 +152,32 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
         return
 
     logger.info("WS connected: user=%s session=%s", user_id, session_id)
+
+    # ── Persist session start to Firestore ────────────────────────────────
+    session_start_time = datetime.now(timezone.utc)
+    try:
+        from app.db import get_db as _get_dashboard_db
+        _dash_db = _get_dashboard_db()
+        if _dash_db:
+            _sess_doc = (
+                _dash_db.collection("users")
+                .document(user_id)
+                .collection("sessions")
+                .document(session_id)
+            )
+            _sess_doc.set(
+                {
+                    "created_at": session_start_time,
+                    "status": "active",
+                    "topic": "General Tutoring",
+                    "subject": "",
+                    "duration_minutes": 0,
+                },
+                merge=True,
+            )
+            logger.info("Session doc created in Firestore: users/%s/sessions/%s", user_id, session_id)
+    except Exception as _fs_exc:
+        logger.warning("Failed to save session start: %s", _fs_exc)
 
     assert runner is not None and session_service is not None
 
@@ -561,6 +588,36 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     except Exception as exc:
         logger.error("Session error: %s", exc, exc_info=True)
     finally:
+        # ── Persist session end to Firestore ─────────────────────────────
+        try:
+            from app.db import get_db as _get_dashboard_db
+            _dash_db = _get_dashboard_db()
+            if _dash_db:
+                session_end_time = datetime.now(timezone.utc)
+                duration_minutes = round(
+                    (session_end_time - session_start_time).total_seconds() / 60, 1
+                )
+                _sess_doc = (
+                    _dash_db.collection("users")
+                    .document(user_id)
+                    .collection("sessions")
+                    .document(session_id)
+                )
+                _sess_doc.set(
+                    {
+                        "ended_at": session_end_time,
+                        "duration_minutes": duration_minutes,
+                        "status": "completed",
+                    },
+                    merge=True,
+                )
+                logger.info(
+                    "Session ended in Firestore: users/%s/sessions/%s (%.1f min)",
+                    user_id, session_id, duration_minutes,
+                )
+        except Exception as _fs_exc:
+            logger.warning("Failed to save session end: %s", _fs_exc)
+
         # Remove the WS notify callback so the closed websocket can
         # be GC'd and no stale callbacks linger in the contextvar.
         ws_notify.reset(_notify_token)

@@ -159,6 +159,18 @@ export function useWebSocket() {
     []
   );
 
+  const sendCanvasElements = useCallback(
+    (elements: { y: number; height: number; points?: number[][] }[]) => {
+      const ws = wsRef.current;
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({ type: "canvas_elements", elements })
+        );
+      }
+    },
+    []
+  );
+
   // ── ADK Event handler ───────────────────────────────────────────────────
 
   const handleADKEvent = useCallback(
@@ -396,6 +408,7 @@ export function useWebSocket() {
     sendAudio,
     sendImage,
     sendCanvasSnapshot,
+    sendCanvasElements,
   };
 }
 

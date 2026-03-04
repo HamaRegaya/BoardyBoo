@@ -44,6 +44,7 @@ async function roundImageCorners(dataURL: string, radius = IMAGE_CORNER_RADIUS):
 
 export interface WhiteboardCanvasRef {
   getSnapshot: () => Promise<string | null>;
+  getSceneElements: () => any[];
 }
 
 interface Props {
@@ -186,6 +187,63 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
       return [...convertedStandard, ...convertedImages];
     }, []);
 
+    // ── Helper: compute bottom edge of existing scene content ─────────
+    //    Returns the Y coordinate just past the lowest visible element.
+    //    Used to push new tutor content below student drawings.
+
+    const getContentBottomY = useCallback((api: any): number => {
+      const elements = api.getSceneElements();
+      let maxBottom = 0;
+      for (const el of elements) {
+        if (el.isDeleted) continue;
+        let bottom = (el.y ?? 0) + (el.height ?? 0);
+        // For freedraw / line / arrow, height might be 0; compute from points
+        if (el.points && Array.isArray(el.points) && el.points.length > 0) {
+          const maxPtY = Math.max(...el.points.map((p: number[]) => p[1] ?? 0));
+          const minPtY = Math.min(...el.points.map((p: number[]) => p[1] ?? 0));
+          bottom = Math.max(bottom, (el.y ?? 0) + maxPtY);
+          // Also account for negative points (drawing upward from anchor)
+          bottom = Math.max(bottom, (el.y ?? 0) + Math.abs(maxPtY - minPtY));
+        }
+        maxBottom = Math.max(maxBottom, bottom);
+      }
+      return maxBottom;
+    }, []);
+
+    // ── Helper: shift new elements below existing content ────────────
+    const TUTOR_CONTENT_MARGIN = 40; // px gap between student & tutor content
+
+    const shiftElementsBelowContent = useCallback(
+      (api: any, newElements: any[]): any[] => {
+        if (!newElements || newElements.length === 0) return newElements;
+
+        const contentBottom = getContentBottomY(api);
+        if (contentBottom <= 0) return newElements; // canvas is empty
+
+        // Find the top-most Y of incoming new elements
+        let minNewY = Infinity;
+        for (const el of newElements) {
+          minNewY = Math.min(minNewY, el.y ?? 0);
+        }
+
+        // If the new elements would land inside/above existing content, push down
+        const targetY = contentBottom + TUTOR_CONTENT_MARGIN;
+        if (minNewY < targetY) {
+          const offsetY = targetY - minNewY;
+          console.log(
+            `[Canvas] Shifting ${newElements.length} new elements down by ${Math.round(offsetY)}px (contentBottom=${Math.round(contentBottom)}, minNewY=${Math.round(minNewY)})`
+          );
+          return newElements.map((el: any) => ({
+            ...el,
+            y: (el.y ?? 0) + offsetY,
+          }));
+        }
+
+        return newElements;
+      },
+      [getContentBottomY]
+    );
+
     // ── Apply canvas commands when they arrive or API becomes ready ───────
     // For commands with animation metadata, elements are drawn smoothly
     // using requestAnimationFrame — lines grow progressively and text
@@ -246,7 +304,9 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
         // ── Animated rendering path (smooth via requestAnimationFrame) ─
         if (cmd.animation && cmd.animation.length > 0) {
           const groups = cmd.animation;
-          const allConverted = toExcalidrawElements(cmd.elements);
+          const allConverted = cmd.action === "add"
+            ? shiftElementsBelowContent(api, toExcalidrawElements(cmd.elements))
+            : toExcalidrawElements(cmd.elements);
           const baseElements = [...api.getSceneElements()];
 
           // Scroll to frame the full plot area before drawing starts
@@ -394,7 +454,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
         }
 
         // ── Standard (non-animated) rendering path ───────────────────
-        const newElements = toExcalidrawElements(cmd.elements);
+        const rawElements = toExcalidrawElements(cmd.elements);
+        // For "add" actions, shift new content below existing student drawings
+        const newElements = cmd.action === "add"
+          ? shiftElementsBelowContent(api, rawElements)
+          : rawElements;
 
         if (cmd.action === "replace") {
           api.updateScene({ elements: newElements });
@@ -425,7 +489,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
           animFrameRef.current = 0;
         }
       };
-    }, [canvasCommands, ready, toExcalidrawElements]);
+    }, [canvasCommands, ready, toExcalidrawElements, shiftElementsBelowContent]);
 
     // ── Get canvas snapshot as base64 JPEG ────────────────────────────────
 
@@ -457,8 +521,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
       }
     }, []);
 
-    // Expose only getSnapshot via ref
-    useImperativeHandle(ref, () => ({ getSnapshot }), [getSnapshot]);
+    // Expose getSnapshot and getSceneElements via ref
+    useImperativeHandle(ref, () => ({
+      getSnapshot,
+      getSceneElements: () => apiRef.current?.getSceneElements() ?? [],
+    }), [getSnapshot]);
 
     if (!ExcalidrawComp || !mounted) {
       return (

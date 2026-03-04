@@ -274,7 +274,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                     # Plain text from the student
                     text = json_msg.get("text", "")
                     if text:
-                        live_request_queue.send_realtime_text(text)
+                        live_request_queue.send_content(
+                            types.Content(role="user", parts=[types.Part(text=text)])
+                        )
 
                 elif msg_type in ("image", "canvas"):
                     # JPEG image or canvas snapshot
@@ -289,8 +291,13 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                 elif msg_type == "canvas_elements":
                     # Excalidraw element data sent as text so the agent can reason
                     elements = json_msg.get("elements", [])
+                    # Update internal Y cursor so tutor writes below student content
+                    from app.tools.canvas_tools import update_cursor_from_canvas
+                    update_cursor_from_canvas(elements)
                     canvas_text = f"[Canvas Elements JSON]\n{json.dumps(elements, indent=2)}"
-                    live_request_queue.send_realtime_text(canvas_text)
+                    live_request_queue.send_content(
+                        types.Content(role="user", parts=[types.Part(text=canvas_text)])
+                    )
 
                 elif msg_type == "activity_start":
                     live_request_queue.send_activity_start()

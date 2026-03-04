@@ -30,6 +30,37 @@ _V_PAD = 14                # vertical padding inside a box (each side)
 _TEXT_SPACING = 2           # vertical gap between consecutive text blocks
 _cursor_y: float = 60.0    # current vertical cursor position
 _CURSOR_Y_INIT: float = 60.0
+_CURSOR_MARGIN: float = 40.0  # gap between existing content and new tutor text
+
+
+def update_cursor_from_canvas(elements: List[Dict[str, Any]]) -> None:
+    """Update the internal Y cursor based on the actual canvas content.
+
+    Called when a canvas snapshot or element data arrives so that subsequent
+    `write_text_on_canvas` calls place text BELOW everything the student
+    has already drawn.
+    """
+    global _cursor_y
+    if not elements:
+        return
+
+    max_bottom: float = 0.0
+    for el in elements:
+        y = float(el.get("y", 0))
+        h = float(el.get("height", 0))
+        bottom = y + h
+        # For freedraw / line / arrow, compute from points
+        pts = el.get("points")
+        if pts and isinstance(pts, list) and len(pts) > 0:
+            max_pt_y = max((float(p[1]) for p in pts if isinstance(p, (list, tuple)) and len(p) > 1), default=0)
+            bottom = max(bottom, y + max_pt_y)
+        max_bottom = max(max_bottom, bottom)
+
+    if max_bottom > 0:
+        new_cursor = max_bottom + _CURSOR_MARGIN
+        if new_cursor > _cursor_y:
+            logger.debug("update_cursor_from_canvas: cursor %.0f → %.0f", _cursor_y, new_cursor)
+            _cursor_y = new_cursor
 
 
 

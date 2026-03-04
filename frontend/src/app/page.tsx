@@ -8,6 +8,7 @@
 import "./landing.css";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 // ── SVG Icon Components ───────────────────────────────────────────────────────
 
@@ -333,7 +334,9 @@ export default function HomePage() {
       <nav className={`land-nav ${scrolled ? "scrolled" : ""}`}>
         <div className="land-nav-inner">
           <div className="land-brand">
-            <div className="land-brand-icon"><IconPen /></div>
+            <div className="land-brand-icon" style={{ background: 'none', boxShadow: 'none' }}>
+              <Image src="/Logo.png" alt="BoardyBoo" width={36} height={36} style={{ borderRadius: 8 }} />
+            </div>
             <span className="land-brand-name">BoardyBoo</span>
           </div>
           <div className="land-nav-links">

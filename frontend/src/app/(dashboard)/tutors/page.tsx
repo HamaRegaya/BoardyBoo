@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload, Loader2, Trash2 } from "lucide-react";
+import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload, Loader2, Trash2, Square } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,6 +30,7 @@ export type Tutor = {
     subjects: string[];
     personality: string;
     level: string;
+    voice: string;
     stats: { sessions: string; rating: string };
     styles: TeachingStyle[];
 };
@@ -57,11 +58,39 @@ const TEACHING_STYLE_OPTIONS: { key: string; icon: React.ReactNode; name: string
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
 
 const VOICE_OPTIONS = [
-    { value: "default", label: "Default" },
-    { value: "calm", label: "Calm & Soothing" },
-    { value: "energetic", label: "Energetic" },
-    { value: "professional", label: "Professional" },
+    { value: "Zephyr", label: "Zephyr" },
+    { value: "Puck", label: "Puck" },
+    { value: "Charon", label: "Charon" },
+    { value: "Kore", label: "Kore" },
+    { value: "Fenrir", label: "Fenrir" },
+    { value: "Leda", label: "Leda" },
+    { value: "Orus", label: "Orus" },
+    { value: "Aoede", label: "Aoede" },
+    { value: "Callirrhoe", label: "Callirrhoe" },
+    { value: "Autonoe", label: "Autonoe" },
+    { value: "Enceladus", label: "Enceladus" },
+    { value: "Iapetus", label: "Iapetus" },
+    { value: "Umbriel", label: "Umbriel" },
+    { value: "Algieba", label: "Algieba" },
+    { value: "Despina", label: "Despina" },
+    { value: "Erinome", label: "Erinome" },
+    { value: "Algenib", label: "Algenib" },
+    { value: "Rasalgethi", label: "Rasalgethi" },
+    { value: "Laomedeia", label: "Laomedeia" },
+    { value: "Achernar", label: "Achernar" },
+    { value: "Alnilam", label: "Alnilam" },
+    { value: "Schedar", label: "Schedar" },
+    { value: "Gacrux", label: "Gacrux" },
+    { value: "Pulcherrima", label: "Pulcherrima" },
+    { value: "Achird", label: "Achird" },
+    { value: "Zubenelgenubi", label: "Zubenelgenubi" },
+    { value: "Vindemiatrix", label: "Vindemiatrix" },
+    { value: "Sadachbia", label: "Sadachbia" },
+    { value: "Sadaltager", label: "Sadaltager" },
+    { value: "Sulafat", label: "Sulafat" },
 ];
+
+const VOICE_SAMPLE_URL = (name: string) => `https://www.gstatic.com/aistudio/voices/samples/${name}.wav`;
 
 export default function TutorsPage() {
     const { getToken } = useAuth();
@@ -87,7 +116,9 @@ export default function TutorsPage() {
     const [formAvatar, setFormAvatar] = useState(AVATAR_OPTIONS[0].src);
     const [formStyles, setFormStyles] = useState<string[]>([]);
     const [formLevel, setFormLevel] = useState("Intermediate");
-    const [formVoice, setFormVoice] = useState("default");
+    const [formVoice, setFormVoice] = useState("Zephyr");
+    const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+    const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
     const [formDesc, setFormDesc] = useState("");
     const [formTags, setFormTags] = useState("");
 
@@ -105,10 +136,21 @@ export default function TutorsPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Stop voice sample when modals close
+    useEffect(() => {
+        if (!selectedTutor && !showCreateModal && voiceAudioRef.current) {
+            voiceAudioRef.current.pause();
+            voiceAudioRef.current = null;
+            setPlayingVoice(null);
+        }
+    }, [selectedTutor, showCreateModal]);
+
     const resetCreateForm = () => {
         setFormName(""); setFormTitle(""); setFormSubject(""); setFormPersonality("");
         setFormAvatar(AVATAR_OPTIONS[0].src); setFormStyles([]); setFormLevel("Intermediate");
-        setFormVoice("default"); setFormDesc(""); setFormTags(""); setOpenDropdown(null);
+        setFormVoice("Zephyr"); setFormDesc(""); setFormTags(""); setOpenDropdown(null);
+        if (voiceAudioRef.current) { voiceAudioRef.current.pause(); voiceAudioRef.current = null; }
+        setPlayingVoice(null);
     };
 
     const toggleFormStyle = (key: string) => {
@@ -128,6 +170,7 @@ export default function TutorsPage() {
         subjects: raw.subjects ?? [],
         personality: raw.personality ?? "",
         level: raw.level ?? "Intermediate",
+        voice: raw.voice ?? "Zephyr",
         stats: raw.stats ?? { sessions: "0", rating: "N/A" },
         styles: raw.styles ?? [],
         tags: raw.tags ?? [],
@@ -481,8 +524,21 @@ export default function TutorsPage() {
                                                     <Image src={selectedTutor.avatar} alt={selectedTutor.name} width={120} height={120} style={{ objectFit: 'contain' }} />
                                                 ) : <span style={{ fontSize: '32px', color: 'var(--text-muted)', fontWeight: 700 }}>{selectedTutor.placeholder}</span>}
                                             </div>
-                                            <button style={{ background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} className="hover:bg-slate-50 transition-colors">
-                                                <Play size={14} fill="currentColor" /> Voice Sample
+                                            <button onClick={() => {
+                                                if (playingVoice === selectedTutor.voice) {
+                                                    voiceAudioRef.current?.pause();
+                                                    voiceAudioRef.current = null;
+                                                    setPlayingVoice(null);
+                                                } else {
+                                                    if (voiceAudioRef.current) { voiceAudioRef.current.pause(); voiceAudioRef.current = null; }
+                                                    const audio = new Audio(VOICE_SAMPLE_URL(selectedTutor.voice || 'Zephyr'));
+                                                    audio.onended = () => { setPlayingVoice(null); voiceAudioRef.current = null; };
+                                                    audio.play();
+                                                    voiceAudioRef.current = audio;
+                                                    setPlayingVoice(selectedTutor.voice);
+                                                }
+                                            }} style={{ background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} className="hover:bg-slate-50 transition-colors">
+                                                {playingVoice === selectedTutor.voice ? <><Square size={14} fill="currentColor" /> Stop Voice</> : <><Play size={14} fill="currentColor" /> Voice Sample</>}
                                             </button>
                                         </div>
 
@@ -531,34 +587,42 @@ export default function TutorsPage() {
                                         </div>
 
                                         <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                                <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                                                     <Settings2 size={18} className="text-primary" /> Session Settings
                                                 </h3>
                                             </div>
 
-                                            <div style={{ marginBottom: '24px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: 600 }}>
+                                            <div style={{ marginBottom: '20px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
                                                     <span style={{ color: 'var(--text-main)' }}>Speaking Speed</span>
-                                                    <span style={{ color: 'var(--primary)' }}>Normal (1x)</span>
+                                                    <span style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, background: '#eef2ff', padding: '2px 10px', borderRadius: '20px' }}>Normal (1x)</span>
                                                 </div>
-                                                <input type="range" className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" defaultValue="50" min="0" max="100" />
+                                                <div style={{ position: 'relative', height: '6px', background: '#e2e8f0', borderRadius: '100px', overflow: 'hidden' }}>
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%', background: 'linear-gradient(90deg, var(--primary), #818cf8)', borderRadius: '100px' }} />
+                                                </div>
                                             </div>
 
-                                            <div style={{ marginBottom: '32px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: 600 }}>
+                                            <div style={{ marginBottom: '28px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
                                                     <span style={{ color: 'var(--text-main)' }}>Explanation Depth</span>
-                                                    <span style={{ color: 'var(--primary)' }}>Detailed</span>
+                                                    <span style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, background: '#eef2ff', padding: '2px 10px', borderRadius: '20px' }}>Detailed</span>
                                                 </div>
-                                                <input type="range" className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" defaultValue="100" min="0" max="100" />
+                                                <div style={{ position: 'relative', height: '6px', background: '#e2e8f0', borderRadius: '100px', overflow: 'hidden' }}>
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '100%', background: 'linear-gradient(90deg, var(--primary), #818cf8)', borderRadius: '100px' }} />
+                                                </div>
                                             </div>
 
-                                            <Link href="/board" onClick={() => setSelectedTutor(null)} style={{ background: 'var(--primary)', color: 'white', padding: '16px 24px', borderRadius: '12px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }} className="hover:-translate-y-1 hover:bg-[#4338ca]">
-                                                Start Learning Session <ArrowRight size={18} />
-                                            </Link>
-                                            <button onClick={() => handleDeleteTutor(selectedTutor.id)} style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', cursor: 'pointer', transition: 'all 0.2s' }}>
-                                                <Trash2 size={16} /> Delete Tutor
-                                            </button>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <Link href="/board" onClick={() => setSelectedTutor(null)} style={{ background: 'linear-gradient(135deg, var(--primary), #6366f1)', color: 'white', padding: '14px 24px', borderRadius: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 16px rgba(79, 70, 229, 0.35)' }} className="hover:-translate-y-1 hover:shadow-lg">
+                                                    Start Learning Session <ArrowRight size={18} />
+                                                </Link>
+                                                <button onClick={() => handleDeleteTutor(selectedTutor.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '10px 24px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
+                                                    <Trash2 size={14} /> Delete Tutor
+                                                </button>
+                                            </div>
                                         </div>
 
                                     </div>
@@ -588,7 +652,7 @@ export default function TutorsPage() {
                                     </button>
                                 </div>
 
-                                <div style={{ padding: '28px 32px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                                <div ref={dropdownRef} style={{ padding: '28px 32px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
                                     {/* ── Avatar Selection ─────────────────────── */}
                                     <div style={{ overflow: 'hidden', padding: '4px' }}>
@@ -650,7 +714,7 @@ export default function TutorsPage() {
                                     </div>
 
                                     {/* ── Subject & Personality Row ──────────── */}
-                                    <div ref={dropdownRef} style={{ display: 'flex', gap: '16px' }}>
+                                    <div style={{ display: 'flex', gap: '16px' }}>
                                         <div style={{ flex: 1, position: 'relative' }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Subject Expertise *</label>
                                             <button type="button" onClick={() => setOpenDropdown(openDropdown === 'subject' ? null : 'subject')}
@@ -767,26 +831,54 @@ export default function TutorsPage() {
                                     <div style={{ display: 'flex', gap: '16px' }}>
                                         <div style={{ flex: 1 }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Volume2 size={14} /> Voice Tone</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Volume2 size={14} /> Voice</span>
                                             </label>
                                             <div style={{ position: 'relative' }}>
                                                 <button type="button" onClick={() => setOpenDropdown(openDropdown === 'voice' ? null : 'voice')}
                                                     style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: openDropdown === 'voice' ? '1.5px solid var(--primary)' : '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', transition: 'border 0.2s, box-shadow 0.2s', boxShadow: openDropdown === 'voice' ? '0 0 0 3px rgba(79,70,229,0.1)' : 'none' }}>
-                                                    <span>{VOICE_OPTIONS.find(v => v.value === formVoice)?.label ?? 'Default'}</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {formVoice}
+                                                        {playingVoice === formVoice && (
+                                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', animation: 'pulse 1s ease-in-out infinite' }} />
+                                                        )}
+                                                    </span>
                                                     <motion.span animate={{ rotate: openDropdown === 'voice' ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown size={16} color="var(--text-muted)" /></motion.span>
                                                 </button>
                                                 <AnimatePresence>
                                                     {openDropdown === 'voice' && (
                                                         <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.15 }}
-                                                            style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, overflow: 'hidden', padding: '4px' }}>
+                                                            style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, maxHeight: '260px', overflowY: 'auto', padding: '4px' }}>
                                                             {VOICE_OPTIONS.map(opt => (
-                                                                <button key={opt.value} type="button" onClick={() => { setFormVoice(opt.value); setOpenDropdown(null); }}
-                                                                    style={{ width: '100%', padding: '11px 14px', border: 'none', background: formVoice === opt.value ? '#eef2ff' : 'transparent', color: formVoice === opt.value ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formVoice === opt.value ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
-                                                                    onMouseEnter={e => { if (formVoice !== opt.value) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-main)'; }}
-                                                                    onMouseLeave={e => { if (formVoice !== opt.value) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                                                                    <span>{opt.label}</span>
-                                                                    {formVoice === opt.value && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
-                                                                </button>
+                                                                <div key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <button type="button" onClick={() => { setFormVoice(opt.value); setOpenDropdown(null); }}
+                                                                        style={{ flex: 1, padding: '9px 12px', border: 'none', background: formVoice === opt.value ? '#eef2ff' : 'transparent', color: formVoice === opt.value ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formVoice === opt.value ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
+                                                                        onMouseEnter={e => { if (formVoice !== opt.value) e.currentTarget.style.background = 'var(--bg-main)'; }}
+                                                                        onMouseLeave={e => { if (formVoice !== opt.value) e.currentTarget.style.background = 'transparent'; }}>
+                                                                        <span>{opt.label}</span>
+                                                                        {formVoice === opt.value && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
+                                                                    </button>
+                                                                    <button type="button" title={playingVoice === opt.value ? 'Stop' : 'Play sample'}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (playingVoice === opt.value) {
+                                                                                voiceAudioRef.current?.pause();
+                                                                                voiceAudioRef.current = null;
+                                                                                setPlayingVoice(null);
+                                                                            } else {
+                                                                                if (voiceAudioRef.current) { voiceAudioRef.current.pause(); voiceAudioRef.current = null; }
+                                                                                const audio = new Audio(VOICE_SAMPLE_URL(opt.value));
+                                                                                audio.onended = () => { setPlayingVoice(null); voiceAudioRef.current = null; };
+                                                                                audio.play();
+                                                                                voiceAudioRef.current = audio;
+                                                                                setPlayingVoice(opt.value);
+                                                                            }
+                                                                        }}
+                                                                        style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: playingVoice === opt.value ? '#eef2ff' : 'transparent', color: playingVoice === opt.value ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
+                                                                        onMouseEnter={e => { if (playingVoice !== opt.value) e.currentTarget.style.background = 'var(--bg-main)'; }}
+                                                                        onMouseLeave={e => { if (playingVoice !== opt.value) e.currentTarget.style.background = 'transparent'; }}>
+                                                                        {playingVoice === opt.value ? <Square size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+                                                                    </button>
+                                                                </div>
                                                             ))}
                                                         </motion.div>
                                                     )}

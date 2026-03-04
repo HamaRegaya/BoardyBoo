@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 # ── Text measurement helper ───────────────────────────────────────────────────
 
 _CHAR_WIDTH_RATIO = 0.8    # approximate width-per-pixel relative to font_size (Virgil/handwriting font runs wide)
-_LINE_HEIGHT_RATIO = 1.35  # line height relative to font_size
+_LINE_HEIGHT_RATIO = 1.05  # line height relative to font_size
 _H_PAD = 24                # horizontal padding inside a box (each side)
 _V_PAD = 14                # vertical padding inside a box (each side)
 
 # Auto-advancing Y cursor so consecutive text writes stack vertically.
 # Reset by clear_canvas.
-_TEXT_SPACING = 12          # vertical gap between consecutive text blocks
+_TEXT_SPACING = 2           # vertical gap between consecutive text blocks
 _cursor_y: float = 60.0    # current vertical cursor position
 _CURSOR_Y_INIT: float = 60.0
 

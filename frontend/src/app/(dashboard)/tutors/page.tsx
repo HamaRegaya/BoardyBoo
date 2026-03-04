@@ -587,34 +587,42 @@ export default function TutorsPage() {
                                         </div>
 
                                         <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '24px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                                <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                                                     <Settings2 size={18} className="text-primary" /> Session Settings
                                                 </h3>
                                             </div>
 
-                                            <div style={{ marginBottom: '24px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: 600 }}>
+                                            <div style={{ marginBottom: '20px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
                                                     <span style={{ color: 'var(--text-main)' }}>Speaking Speed</span>
-                                                    <span style={{ color: 'var(--primary)' }}>Normal (1x)</span>
+                                                    <span style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, background: '#eef2ff', padding: '2px 10px', borderRadius: '20px' }}>Normal (1x)</span>
                                                 </div>
-                                                <input type="range" className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" defaultValue="50" min="0" max="100" />
+                                                <div style={{ position: 'relative', height: '6px', background: '#e2e8f0', borderRadius: '100px', overflow: 'hidden' }}>
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%', background: 'linear-gradient(90deg, var(--primary), #818cf8)', borderRadius: '100px' }} />
+                                                </div>
                                             </div>
 
-                                            <div style={{ marginBottom: '32px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: 600 }}>
+                                            <div style={{ marginBottom: '28px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
                                                     <span style={{ color: 'var(--text-main)' }}>Explanation Depth</span>
-                                                    <span style={{ color: 'var(--primary)' }}>Detailed</span>
+                                                    <span style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, background: '#eef2ff', padding: '2px 10px', borderRadius: '20px' }}>Detailed</span>
                                                 </div>
-                                                <input type="range" className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" defaultValue="100" min="0" max="100" />
+                                                <div style={{ position: 'relative', height: '6px', background: '#e2e8f0', borderRadius: '100px', overflow: 'hidden' }}>
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '100%', background: 'linear-gradient(90deg, var(--primary), #818cf8)', borderRadius: '100px' }} />
+                                                </div>
                                             </div>
 
-                                            <Link href="/board" onClick={() => setSelectedTutor(null)} style={{ background: 'var(--primary)', color: 'white', padding: '16px 24px', borderRadius: '12px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }} className="hover:-translate-y-1 hover:bg-[#4338ca]">
-                                                Start Learning Session <ArrowRight size={18} />
-                                            </Link>
-                                            <button onClick={() => handleDeleteTutor(selectedTutor.id)} style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', cursor: 'pointer', transition: 'all 0.2s' }}>
-                                                <Trash2 size={16} /> Delete Tutor
-                                            </button>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <Link href="/board" onClick={() => setSelectedTutor(null)} style={{ background: 'linear-gradient(135deg, var(--primary), #6366f1)', color: 'white', padding: '14px 24px', borderRadius: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 16px rgba(79, 70, 229, 0.35)' }} className="hover:-translate-y-1 hover:shadow-lg">
+                                                    Start Learning Session <ArrowRight size={18} />
+                                                </Link>
+                                                <button onClick={() => handleDeleteTutor(selectedTutor.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '10px 24px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
+                                                    <Trash2 size={14} /> Delete Tutor
+                                                </button>
+                                            </div>
                                         </div>
 
                                     </div>

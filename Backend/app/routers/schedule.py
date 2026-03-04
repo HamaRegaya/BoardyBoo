@@ -218,3 +218,107 @@ async def delete_scheduled_session(
     doc_ref.delete()
     logger.info("Schedule session deleted: %s for user %s", session_id, uid)
     return {"status": "ok", "deleted_id": session_id}
+
+
+# ── Combined endpoint (single call) ──────────────────────────────────────────
+
+import asyncio
+import concurrent.futures
+
+_sched_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+
+def _fetch_schedule_sessions(uid: str):
+    db = get_db()
+    if not db:
+        return []
+    try:
+        results = []
+        ref = db.collection("users").document(uid).collection("schedule")
+        for doc in ref.order_by("start_time").stream():
+            results.append(_serialize(doc))
+        return results
+    except Exception as e:
+        logger.error("_fetch_schedule_sessions: %s", e)
+        return []
+
+
+def _fetch_study_plans(uid: str):
+    db = get_db()
+    if not db:
+        return []
+    try:
+        results = []
+        ref = db.collection("users").document(uid).collection("study_plans")
+        for doc in ref.stream():
+            data = doc.to_dict()
+            data["id"] = doc.id
+            results.append(data)
+        return results
+    except Exception as e:
+        logger.error("_fetch_study_plans: %s", e)
+        return []
+
+
+def _fetch_calendar_events_sync(uid: str, days: int = 14):
+    service = get_calendar_service(uid)
+    if not service:
+        return {"connected": False, "events": []}
+
+    import datetime as dt
+    now = dt.datetime.now(dt.timezone.utc)
+    time_max = now + dt.timedelta(days=days)
+
+    try:
+        result = (
+            service.events()
+            .list(
+                calendarId="primary",
+                timeMin=now.isoformat(),
+                timeMax=time_max.isoformat(),
+                maxResults=100,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
+        events = []
+        for item in result.get("items", []):
+            start = item.get("start", {})
+            end = item.get("end", {})
+            events.append({
+                "id": item.get("id"),
+                "summary": item.get("summary", "(No title)"),
+                "description": item.get("description", ""),
+                "start": start.get("dateTime") or start.get("date"),
+                "end": end.get("dateTime") or end.get("date"),
+                "html_link": item.get("htmlLink"),
+                "source": "google_calendar",
+            })
+        return {"connected": True, "events": events}
+    except Exception as e:
+        logger.error("_fetch_calendar_events_sync: %s", e)
+        return {"connected": True, "events": []}
+
+
+@router.get("/all", response_model=Dict[str, Any])
+async def get_schedule_all(user: dict = Depends(get_current_user)):
+    """
+    Combined endpoint: returns schedule, study plans, calendar events & status
+    in a single call with concurrent execution.
+    """
+    uid = user["uid"]
+    loop = asyncio.get_running_loop()
+
+    sched_fut = loop.run_in_executor(_sched_executor, _fetch_schedule_sessions, uid)
+    plans_fut = loop.run_in_executor(_sched_executor, _fetch_study_plans, uid)
+    cal_fut = loop.run_in_executor(_sched_executor, _fetch_calendar_events_sync, uid, 14)
+
+    sessions, plans, cal_data = await asyncio.gather(sched_fut, plans_fut, cal_fut)
+
+    return {
+        "sessions": sessions,
+        "study_plans": plans,
+        "calendar_connected": cal_data["connected"],
+        "calendar_events": cal_data["events"],
+    }

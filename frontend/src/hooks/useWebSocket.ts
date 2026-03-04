@@ -32,6 +32,7 @@ export function useWebSocket() {
   const [messages, setMessages] = useState<TranscriptEntry[]>([]);
   const [canvasCommands, setCanvasCommands] = useState<CanvasCommand[]>([]);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
 
   // Refs for mutable input/output transcription tracking
   const currentInputIdRef = useRef<string | null>(null);
@@ -208,6 +209,19 @@ export function useWebSocket() {
           // "error" or any other status → clear the spinner
           setIsGeneratingImage(false);
           console.log("[WS] Image generation signal:", event.status);
+        }
+        return;
+      }
+
+      // ─ Save progress signal from backend ─
+      if (event.type === "saving_progress") {
+        if (event.status === "started") {
+          setIsSavingProgress(true);
+          console.log("[WS] Saving progress started:", event.topic);
+        } else {
+          // "done" or "error" → clear after a brief delay so user sees it
+          setTimeout(() => setIsSavingProgress(false), 2000);
+          console.log("[WS] Saving progress:", event.status);
         }
         return;
       }
@@ -402,6 +416,7 @@ export function useWebSocket() {
     messages,
     canvasCommands,
     isGeneratingImage,
+    isSavingProgress,
     connect,
     disconnect,
     sendText,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
+import { DashboardSkeleton } from "@/components/Skeleton";
 import { API_URL } from "@/lib/constants";
 import {
     Clock,
@@ -80,54 +81,47 @@ export default function Dashboard() {
 
                 const headers = { Authorization: `Bearer ${token}` };
 
-                // Fetch all dashboard data in parallel
-                const [statsRes, sessionsRes, streakRes, topicsRes, progressRes, scheduleRes, calendarRes] =
-                    await Promise.allSettled([
-                        axios.get(`${API_URL}/api/dashboard/stats`, { headers }),
-                        axios.get(`${API_URL}/api/dashboard/sessions?limit=5`, { headers }),
-                        axios.get(`${API_URL}/api/dashboard/streak`, { headers }),
-                        axios.get(`${API_URL}/api/dashboard/topics`, { headers }),
-                        axios.get(`${API_URL}/api/dashboard/progress`, { headers }),
-                        axios.get(`${API_URL}/api/schedule`, { headers }),
-                        axios.get(`${API_URL}/api/calendar/events`, { headers }).catch(() => ({ data: { events: [] } })),
-                    ]);
+                // Single combined call for all dashboard data + optional calendar
+                const [allRes, calendarRes] = await Promise.allSettled([
+                    axios.get(`${API_URL}/api/dashboard/all`, { headers }),
+                    axios.get(`${API_URL}/api/calendar/events`, { headers }).catch(() => ({ data: { events: [] } })),
+                ]);
 
-                if (statsRes.status === "fulfilled") setStats(statsRes.value.data);
-                if (sessionsRes.status === "fulfilled") setRecentSessions(sessionsRes.value.data);
-                if (streakRes.status === "fulfilled") setStreak(streakRes.value.data);
-                if (topicsRes.status === "fulfilled") setSuggestedTopics(topicsRes.value.data.topics ?? []);
-                if (progressRes.status === "fulfilled") setProgress(progressRes.value.data);
+                if (allRes.status === "fulfilled") {
+                    const d = allRes.value.data;
+                    setStats(d.stats);
+                    setRecentSessions(d.sessions ?? []);
+                    setStreak(d.streak);
+                    setSuggestedTopics(d.topics ?? []);
+                    setProgress(d.progress ?? []);
 
-                // Merge BoardyBoo schedule + Google Calendar events
-                const now = new Date();
-                const boardyBooSessions: ScheduledSession[] =
-                    scheduleRes.status === "fulfilled"
-                        ? (scheduleRes.value.data as ScheduledSession[])
-                              .filter((s) => new Date(s.start_time) >= now)
-                        : [];
+                    // Merge schedule + calendar events
+                    const now = new Date();
+                    const boardyBooSessions: ScheduledSession[] = (d.schedule ?? [])
+                        .filter((s: any) => s.start_time && new Date(s.start_time) >= now);
 
-                const calEvents: ScheduledSession[] =
-                    calendarRes.status === "fulfilled" && calendarRes.value?.data?.events
-                        ? calendarRes.value.data.events
-                              .filter((e: any) => e.start && new Date(e.start) >= now)
-                              .map((e: any) => ({
-                                  id: e.id || `gcal-${Math.random()}`,
-                                  title: e.summary || "Google Calendar Event",
-                                  start_time: e.start,
-                                  duration_hours: e.start && e.end
-                                      ? (new Date(e.end).getTime() - new Date(e.start).getTime()) / 3600000
-                                      : 1,
-                              }))
-                        : [];
+                    const calEvents: ScheduledSession[] =
+                        calendarRes.status === "fulfilled" && calendarRes.value?.data?.events
+                            ? calendarRes.value.data.events
+                                  .filter((e: any) => e.start && new Date(e.start) >= now)
+                                  .map((e: any) => ({
+                                      id: e.id || `gcal-${Math.random()}`,
+                                      title: e.summary || "Google Calendar Event",
+                                      start_time: e.start,
+                                      duration_hours: e.start && e.end
+                                          ? (new Date(e.end).getTime() - new Date(e.start).getTime()) / 3600000
+                                          : 1,
+                                  }))
+                            : [];
 
-                // Deduplicate by title+time, then sort and take top 3
-                const allIds = new Set(boardyBooSessions.map((s) => s.id));
-                const merged = [
-                    ...boardyBooSessions,
-                    ...calEvents.filter((e) => !allIds.has(e.id)),
-                ];
-                merged.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-                setUpcoming(merged.slice(0, 3));
+                    const allIds = new Set(boardyBooSessions.map((s) => s.id));
+                    const merged = [
+                        ...boardyBooSessions,
+                        ...calEvents.filter((e) => !allIds.has(e.id)),
+                    ];
+                    merged.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                    setUpcoming(merged.slice(0, 3));
+                }
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {
@@ -152,6 +146,9 @@ export default function Dashboard() {
 
     /* ── Render ────────────────────────────────────── */
 
+    if (loadingData) {
+        return <DashboardSkeleton />;
+    }
     const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
     const formatTime12 = (iso: string) => {

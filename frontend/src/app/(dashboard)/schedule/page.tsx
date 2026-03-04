@@ -224,24 +224,18 @@ export default function SchedulePage() {
             const token = await getToken();
             if (!token) return;
             const headers = { Authorization: `Bearer ${token}` };
-            const [schedRes, goalsRes, calRes, calStatusRes] = await Promise.allSettled([
-                axios.get(`${API_URL}/api/schedule`, { headers }),
-                axios.get(`${API_URL}/api/dashboard/study-plans`, { headers }),
-                axios.get(`${API_URL}/api/calendar/events?days=14`, { headers }),
-                axios.get(`${API_URL}/api/calendar/status`, { headers }),
-            ]);
-            if (schedRes.status === "fulfilled") {
-                const mapped = (schedRes.value.data as any[]).map(apiSessionToLocal);
-                setSessions(mapped);
-            }
-            if (goalsRes.status === "fulfilled") {
-                setGoals(goalsRes.value.data ?? []);
-            }
-            if (calStatusRes.status === "fulfilled") {
-                setCalendarConnected(calStatusRes.value.data?.connected ?? false);
-            }
-            if (calRes.status === "fulfilled" && calRes.value.data?.events) {
-                const gcalEvents: Session[] = calRes.value.data.events.map((evt: any, idx: number) => {
+
+            // Single combined call for all schedule data
+            const res = await axios.get(`${API_URL}/api/schedule/all`, { headers });
+            const d = res.data;
+
+            const mapped = (d.sessions ?? []).map(apiSessionToLocal);
+            setSessions(mapped);
+            setGoals(d.study_plans ?? []);
+            setCalendarConnected(d.calendar_connected ?? false);
+
+            if (d.calendar_events?.length) {
+                const gcalEvents: Session[] = d.calendar_events.map((evt: any, idx: number) => {
                     const start = evt.start ? new Date(evt.start) : new Date();
                     const end = evt.end ? new Date(evt.end) : new Date();
                     const durationH = Math.max(0.5, (end.getTime() - start.getTime()) / 3600000);
@@ -404,8 +398,8 @@ export default function SchedulePage() {
     /* ═══ RENDER ═══════════════════════════════════════════ */
     if (loading) {
         return (
-            <div className="dash-page" style={{ padding: "40px 48px", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
-                <Loader2 className="animate-spin text-indigo-500" size={36} />
+            <div className="dash-page" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: "16px" }}>
+                <video src="/Loading_Schedule.webm" autoPlay loop muted playsInline style={{ width: 180, height: 180, objectFit: "contain" }} />
             </div>
         );
     }

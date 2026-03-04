@@ -222,7 +222,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             >
                                 <div className="topbar-avatar" style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden" }}>
                                     {user?.photoURL ? (
-                                        <img src={user.photoURL} alt={user.displayName || "User"} width={36} height={36} style={{ objectFit: "cover" }} />
+                                        <>
+                                            <img
+                                                src={user.photoURL}
+                                                alt={user.displayName || "User"}
+                                                width={36}
+                                                height={36}
+                                                referrerPolicy="no-referrer"
+                                                style={{ objectFit: "cover" }}
+                                                onError={(e) => {
+                                                    const img = e.currentTarget;
+                                                    img.style.display = 'none';
+                                                    const fallback = img.nextElementSibling as HTMLElement | null;
+                                                    if (fallback) fallback.style.display = 'flex';
+                                                }}
+                                            />
+                                            <div style={{ width: "100%", height: "100%", background: "var(--brand-main)", color: "white", display: "none", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: 14 }}>
+                                                {user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
+                                            </div>
+                                        </>
                                     ) : (
                                         <div style={{ width: "100%", height: "100%", background: "var(--brand-main)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" }}>
                                             {user?.email?.charAt(0).toUpperCase() || "U"}

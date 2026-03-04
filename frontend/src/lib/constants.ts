@@ -6,6 +6,10 @@
 export const WS_URL =
     process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
 
+/** HTTP API backend URL — override via NEXT_PUBLIC_API_URL env var */
+export const API_URL =
+    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 /** Interval (ms) between automatic canvas snapshots when connected */
 export const SNAPSHOT_INTERVAL_MS = 30_000;
 

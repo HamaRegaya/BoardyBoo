@@ -81,7 +81,7 @@ export default function Dashboard() {
                 const headers = { Authorization: `Bearer ${token}` };
 
                 // Fetch all dashboard data in parallel
-                const [statsRes, sessionsRes, streakRes, topicsRes, progressRes, scheduleRes] =
+                const [statsRes, sessionsRes, streakRes, topicsRes, progressRes, scheduleRes, calendarRes] =
                     await Promise.allSettled([
                         axios.get(`${API_URL}/api/dashboard/stats`, { headers }),
                         axios.get(`${API_URL}/api/dashboard/sessions?limit=5`, { headers }),
@@ -89,6 +89,7 @@ export default function Dashboard() {
                         axios.get(`${API_URL}/api/dashboard/topics`, { headers }),
                         axios.get(`${API_URL}/api/dashboard/progress`, { headers }),
                         axios.get(`${API_URL}/api/schedule`, { headers }),
+                        axios.get(`${API_URL}/api/calendar/events`, { headers }).catch(() => ({ data: { events: [] } })),
                     ]);
 
                 if (statsRes.status === "fulfilled") setStats(statsRes.value.data);
@@ -96,14 +97,37 @@ export default function Dashboard() {
                 if (streakRes.status === "fulfilled") setStreak(streakRes.value.data);
                 if (topicsRes.status === "fulfilled") setSuggestedTopics(topicsRes.value.data.topics ?? []);
                 if (progressRes.status === "fulfilled") setProgress(progressRes.value.data);
-                if (scheduleRes.status === "fulfilled") {
-                    const now = new Date();
-                    const futureOnly = (scheduleRes.value.data as ScheduledSession[])
-                        .filter((s) => new Date(s.start_time) >= now)
-                        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-                        .slice(0, 3);
-                    setUpcoming(futureOnly);
-                }
+
+                // Merge BoardyBoo schedule + Google Calendar events
+                const now = new Date();
+                const boardyBooSessions: ScheduledSession[] =
+                    scheduleRes.status === "fulfilled"
+                        ? (scheduleRes.value.data as ScheduledSession[])
+                              .filter((s) => new Date(s.start_time) >= now)
+                        : [];
+
+                const calEvents: ScheduledSession[] =
+                    calendarRes.status === "fulfilled" && calendarRes.value?.data?.events
+                        ? calendarRes.value.data.events
+                              .filter((e: any) => e.start && new Date(e.start) >= now)
+                              .map((e: any) => ({
+                                  id: e.id || `gcal-${Math.random()}`,
+                                  title: e.summary || "Google Calendar Event",
+                                  start_time: e.start,
+                                  duration_hours: e.start && e.end
+                                      ? (new Date(e.end).getTime() - new Date(e.start).getTime()) / 3600000
+                                      : 1,
+                              }))
+                        : [];
+
+                // Deduplicate by title+time, then sort and take top 3
+                const allIds = new Set(boardyBooSessions.map((s) => s.id));
+                const merged = [
+                    ...boardyBooSessions,
+                    ...calEvents.filter((e) => !allIds.has(e.id)),
+                ];
+                merged.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                setUpcoming(merged.slice(0, 3));
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {

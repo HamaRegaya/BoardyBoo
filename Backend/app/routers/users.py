@@ -216,14 +216,21 @@ async def update_user_profile(
     return {"status": "ok", "updated_fields": list(update_data.keys())}
 
 
-# ── POST /sync — ensure user exists ──────────────────────────────────────────
+class SyncBody(BaseModel):
+    """Optional body for /sync — carries the Google OAuth access token and timezone."""
+    google_access_token: Optional[str] = None
+    timezone: Optional[str] = None
 
 
 @router.post("/sync", response_model=Dict[str, Any])
-async def sync_user(user: dict = Depends(get_current_user)):
+async def sync_user(
+    body: SyncBody = SyncBody(),
+    user: dict = Depends(get_current_user),
+):
     """
     Ensure the user document exists in Firestore.
     The frontend should hit this endpoint exactly once after successful login/signup.
+    If a google_access_token is provided, it is stored for Calendar API access.
     """
     users_ref = get_users_ref()
     if not users_ref:
@@ -234,7 +241,12 @@ async def sync_user(user: dict = Depends(get_current_user)):
     doc = doc_ref.get()
 
     now = datetime.utcnow().isoformat()
-    
+
+    # Store Google Calendar token if provided
+    if body.google_access_token:
+        from app.utils.google_tokens import save_google_token
+        save_google_token(uid, body.google_access_token)
+
     if not doc.exists:
         logger.info(f"Creating new user profile for {uid}")
         new_data = {
@@ -247,7 +259,8 @@ async def sync_user(user: dict = Depends(get_current_user)):
             "grade": "",
             "school": "",
             "languages": [],
-            "preferences": {}
+            "preferences": {},
+            "calendar_connected": bool(body.google_access_token),
         }
         doc_ref.set(new_data)
         return {"status": "created", "data": new_data}
@@ -258,6 +271,10 @@ async def sync_user(user: dict = Depends(get_current_user)):
             "name": user.get("name", doc.to_dict().get("name")), 
             "picture": user.get("picture", doc.to_dict().get("picture"))
         }
+        if body.google_access_token:
+            update_data["calendar_connected"] = True
+        if body.timezone:
+            update_data["timezone"] = body.timezone
         # Update without overwriting things like preferences
         doc_ref.set(update_data, merge=True)
         return {"status": "updated", "data": update_data}

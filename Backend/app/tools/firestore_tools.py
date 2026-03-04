@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from google.cloud import firestore
 
-from app.config import settings
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +35,13 @@ def _safe_tool(fn: Callable) -> Callable:
 
     return wrapper
 
-# Lazy-initialised Firestore client
-_db = None
-
 
 def _get_db():
-    global _db
-    if _db is None:
-        _db = firestore.Client(
-            project=settings.google_cloud_project or None,
-            database=settings.firestore_database,
-        )
-    return _db
+    """Return the shared Firestore client from Firebase Admin SDK."""
+    db = get_db()
+    if db is None:
+        raise RuntimeError("Firestore is not available")
+    return db
 
 
 # ── Session Notes ─────────────────────────────────────────────────────────────

@@ -14,5 +14,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+// Request Google Calendar access so we can read/write the user's calendar
+googleProvider.addScope('https://www.googleapis.com/auth/calendar');
 
 export { app, auth, googleProvider };

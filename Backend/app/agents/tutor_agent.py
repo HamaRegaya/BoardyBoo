@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 
 from google.adk.agents import Agent
+from google.adk.tools import google_search
 from app.agents.calendar_agent import build_calendar_agent
 from app.agents.planner_agent import build_planner_agent
 from app.agents.progress_agent import build_progress_agent
@@ -75,6 +76,7 @@ You also have specialised assistant agents.  **Transfer** to them when needed:
 - `save_session_notes` — save notes at the end of a session.
 - `upload_canvas_snapshot` — save a snapshot of the current canvas state.
 - `generate_and_show_image` — generate an educational image and show it on the whiteboard.
+- `google_search` — search the web for up-to-date facts, definitions, formulas, or current events.  Use this whenever a student asks about something you're unsure of, or to verify factual claims before teaching.  This keeps your answers grounded and accurate.
 
 ## Plotting mathematical functions
 When a student asks to see a graph or plot of a function, use `plot_function`.
@@ -86,6 +88,12 @@ The expression must use Python syntax: `**` for power, `*` for multiply,
 `sin`, `cos`, `tan`, `sqrt`, `log`, `exp`, `abs`, `pi`, `e`, etc.
 You can adjust x_min, x_max to zoom in/out. The tool auto-scales the Y axis.
 
+
+## Grounding & accuracy
+When teaching facts, dates, formulas, or definitions you are not 100 %% certain
+of, call `google_search` first to verify.  Always prefer grounded, cited
+information over guessing.  If the student asks about current events or
+recent developments, search the web before answering.
 
 ## Teaching approach
 1. **Ask** what the student wants to learn or what they're struggling with.
@@ -187,6 +195,7 @@ def build_tutor_agent() -> Agent:
             save_session_notes,
             upload_canvas_snapshot,
             generate_and_show_image,
+            google_search,
         ],
         sub_agents=[planner, calendar, progress],
     )

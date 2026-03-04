@@ -1,0 +1,17 @@
+# ── BoardyBoo Root .gitignore ─────────────────────────────────────────────────
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment files (secrets)
+.env
+.env.local
+.env.*.local
+
+# Firebase service account keys
+*-firebase-adminsdk-*.json

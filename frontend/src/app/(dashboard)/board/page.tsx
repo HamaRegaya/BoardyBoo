@@ -36,6 +36,11 @@ export default function Page() {
   const canvasRef = useRef<WhiteboardCanvasRef>(null);
   const [isRecording, setIsRecording] = useState(false);
 
+  // Camera state
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
   // Snapshot auto-send interval ref
   const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -107,6 +112,55 @@ export default function Page() {
     }
   }, [connect, user, sessionId, getToken, initPlayer, playAudioChunk]);
 
+  // ── Camera handlers ─────────────────────────────────────────────────────
+
+  const openCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      cameraStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraOpen(true);
+    } catch (err) {
+      console.error("Camera access denied:", err);
+    }
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraOpen(false);
+  }, []);
+
+  const captureAndSend = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const base64 = dataUrl.split(",")[1];
+    sendImage(base64, "image/jpeg");
+    // Flash effect for user feedback
+    if (videoRef.current) {
+      videoRef.current.style.opacity = "0.3";
+      setTimeout(() => {
+        if (videoRef.current) videoRef.current.style.opacity = "1";
+      }, 150);
+    }
+  }, [sendImage]);
+
   // ── Disconnect handler ──────────────────────────────────────────────────
 
   const handleDisconnect = useCallback(() => {
@@ -115,6 +169,8 @@ export default function Page() {
       stopRecording();
       setIsRecording(false);
     }
+    // Stop camera
+    closeCamera();
     // Stop auto-snapshots
     if (snapshotIntervalRef.current) {
       clearInterval(snapshotIntervalRef.current);
@@ -122,7 +178,7 @@ export default function Page() {
     }
     disconnect();
     clearPlayback();
-  }, [disconnect, isRecording, stopRecording, clearPlayback]);
+  }, [disconnect, isRecording, stopRecording, clearPlayback, closeCamera]);
 
   // ── Mic toggle ──────────────────────────────────────────────────────────
 
@@ -233,6 +289,21 @@ export default function Page() {
             </button>
 
             <button
+              className={`toolbar-action-btn ${isCameraOpen ? "camera-active" : ""}`}
+              onClick={isCameraOpen ? closeCamera : openCamera}
+              title={isCameraOpen ? "Close camera" : "Show your homework to the tutor"}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {isCameraOpen ? (
+                  <><path d="M16.5 9.4l-2-1.3a2 2 0 0 0-3 1.7v4.4a2 2 0 0 0 3 1.7l2-1.3"/><rect x="2" y="6" width="12" height="12" rx="2"/><line x1="1" y1="1" x2="23" y2="23"/></>
+                ) : (
+                  <><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></>
+                )}
+              </svg>
+              <span>{isCameraOpen ? "Close" : "Camera"}</span>
+            </button>
+
+            <button
               className={`toolbar-mic-btn ${isRecording ? "active" : ""}`}
               onClick={handleToggleMic}
               title={isRecording ? "Mute microphone" : "Unmute microphone"}
@@ -254,6 +325,22 @@ export default function Page() {
       </div>
 
       <div className="content-area">
+        {/* Camera preview overlay */}
+        {isCameraOpen && (
+          <div className="camera-preview">
+            <video ref={videoRef} autoPlay playsInline muted className="camera-video" />
+            <div className="camera-controls">
+              <button className="camera-capture-btn" onClick={captureAndSend} title="Send to tutor">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                Send to Tutor
+              </button>
+              <button className="camera-close-btn" onClick={closeCamera}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Canvas panel */}
         <div className="canvas-panel">
           <WhiteboardCanvas ref={canvasRef} canvasCommands={canvasCommands} isGeneratingImage={isGeneratingImage} />

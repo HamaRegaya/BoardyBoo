@@ -11,7 +11,7 @@ export const API_URL =
     process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 /** Interval (ms) between automatic canvas snapshots when connected */
-export const SNAPSHOT_INTERVAL_MS = 30_000;
+export const SNAPSHOT_INTERVAL_MS = 5_000;
 
 /** Audio sample rate for microphone capture (Live API input requirement) */
 export const MIC_SAMPLE_RATE = 16_000;

@@ -46,14 +46,15 @@ export interface WhiteboardCanvasRef {
   getSnapshot: () => Promise<string | null>;
 }
 
-interface Props {
+interface WhiteboardCanvasProps {
   canvasCommands: CanvasCommand[];
   onCanvasChange?: () => void;
   isGeneratingImage?: boolean;
+  isSavingProgress?: boolean;
 }
 
-const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
-  ({ canvasCommands, onCanvasChange, isGeneratingImage = false }, ref) => {
+const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
+  ({ canvasCommands, onCanvasChange, isGeneratingImage = false, isSavingProgress = false }, ref) => {
     const [ready, setReady] = useState(false);
     const apiRef = useRef<any>(null);
     const [ExcalidrawComp, setExcalidrawComp] = useState<any>(null);
@@ -537,6 +538,44 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
               }}
             >
               ✨ Generating image…
+            </span>
+          </div>
+        )}
+
+        {/* ── Save-progress loading overlay ─────────────────────── */}
+        {isSavingProgress && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 24,
+              right: 24,
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              background: "rgba(124, 58, 237, 0.92)",
+              backdropFilter: "blur(8px)",
+              borderRadius: "16px",
+              padding: "12px 20px",
+              zIndex: 50,
+              boxShadow: "0 8px 32px rgba(124, 58, 237, 0.3)",
+              animation: "fadeInUp 0.3s ease",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/save_progress_loading.gif"
+              alt="Saving progress…"
+              style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 8 }}
+            />
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: "white",
+                letterSpacing: "0.01em",
+              }}
+            >
+              📊 Saving progress…
             </span>
           </div>
         )}

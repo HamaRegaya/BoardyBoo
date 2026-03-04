@@ -14,8 +14,18 @@ from typing import Any, Callable, Dict, List, Optional
 from google.cloud import firestore
 
 from app.db import get_db
+from app.mcp.calendar_mcp import current_user_id
+from app.utils.ws_signals import ws_notify
 
 logger = logging.getLogger(__name__)
+
+
+def _real_uid(user_id: str) -> str:
+    """Return the real Firebase UID, ignoring any placeholder the LLM sends."""
+    ctx_uid = current_user_id.get()
+    if ctx_uid:
+        return ctx_uid
+    return user_id
 
 
 def _safe_tool(fn: Callable) -> Callable:
@@ -67,6 +77,7 @@ def save_session_notes(
     notes:  Summary notes from the tutoring session.
     key_concepts:  List of key concepts covered.
     """
+    user_id = _real_uid(user_id)
     db = _get_db()
     doc_ref = db.collection("users").document(user_id).collection("sessions").document(session_id)
     data = {
@@ -103,9 +114,23 @@ def update_progress(
     mastery_level:  Score from 1 (beginner) to 5 (mastered).
     details:  Optional details about what was learned.
     """
+    # Notify frontend that progress is being saved
+    notify = ws_notify.get()
+    if notify:
+        try:
+            notify({"type": "saving_progress", "status": "started", "topic": topic, "subject": subject})
+        except Exception:
+            pass
+
     if mastery_level < 1 or mastery_level > 5:
+        if notify:
+            try:
+                notify({"type": "saving_progress", "status": "error"})
+            except Exception:
+                pass
         return {"status": "error", "message": "mastery_level must be between 1 and 5."}
 
+    user_id = _real_uid(user_id)
     db = _get_db()
     doc_id = f"{subject}__{topic}".replace(" ", "_").lower()
     doc_ref = db.collection("users").document(user_id).collection("progress").document(doc_id)
@@ -118,6 +143,13 @@ def update_progress(
     }
     doc_ref.set(data, merge=True)
     logger.info("Progress updated: user=%s %s/%s → %d", user_id, subject, topic, mastery_level)
+
+    if notify:
+        try:
+            notify({"type": "saving_progress", "status": "done", "topic": topic})
+        except Exception:
+            pass
+
     return {"status": "ok", "message": f"Progress updated: {topic} → level {mastery_level}/5."}
 
 
@@ -133,6 +165,7 @@ def get_progress(
     user_id:  Student identifier.
     subject:  If provided, filter to this subject only.
     """
+    user_id = _real_uid(user_id)
     db = _get_db()
     ref = db.collection("users").document(user_id).collection("progress")
     if subject:
@@ -177,6 +210,7 @@ def save_quiz_result(
     total:  Total number of questions.
     questions_missed:  List of questions answered incorrectly.
     """
+    user_id = _real_uid(user_id)
     db = _get_db()
     doc_ref = (
         db.collection("users")
@@ -224,6 +258,7 @@ def save_study_plan(
     weekly_goals:  Goals for each week.
     target_date:  ISO-format target completion date (optional).
     """
+    user_id = _real_uid(user_id)
     db = _get_db()
     doc_id = plan_name.replace(" ", "_").lower()
     doc_ref = db.collection("users").document(user_id).collection("study_plans").document(doc_id)
@@ -247,6 +282,7 @@ def get_study_plans(user_id: str) -> Dict[str, Any]:
     ----------
     user_id:  Student identifier.
     """
+    user_id = _real_uid(user_id)
     db = _get_db()
     docs = db.collection("users").document(user_id).collection("study_plans").stream()
     plans = []

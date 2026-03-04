@@ -78,9 +78,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     };
 
-    // Show nothing while checking auth state so we don't flash the dashboard
+    // Show skeleton while checking auth state instead of blank screen
     if (loading || !user) {
-        return null;
+        return (
+            <div className={`dash-app light-mode`}>
+                <header className="dash-topbar">
+                    <div className="topbar-logo-zone">
+                        <div className="dash-brand" style={{ pointerEvents: "none" }}>
+                            <div className="dash-brand-icon" style={{ background: "#e0e0e0" }} />
+                            <div className="dash-brand-text">
+                                <span className="dash-brand-name" style={{ opacity: 0.3 }}>BoardyBoo</span>
+                                <span className="dash-brand-sub" style={{ opacity: 0.3 }}>Loading…</span>
+                            </div>
+                        </div>
+                    </div>
+                    <nav className="topbar-nav">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className="skeleton-shimmer" style={{ width: 90, height: 36, borderRadius: 12 }} />
+                        ))}
+                    </nav>
+                </header>
+                <main className="dash-main">
+                    <div style={{ padding: "32px 40px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, marginBottom: 36 }}>
+                            <div className="skeleton-shimmer" style={{ height: 220, borderRadius: 20 }} />
+                            <div className="skeleton-shimmer" style={{ height: 220, borderRadius: 20 }} />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="skeleton-shimmer" style={{ height: 120, borderRadius: 16 }} />
+                            ))}
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
     }
 
     const unreadCount = notifications.filter(n => n.unread).length;

@@ -540,7 +540,9 @@ export default function HomePage() {
       <footer className="land-footer">
         <div className="land-footer-inner">
           <div className="land-brand">
-            <div className="land-brand-icon sm"><IconPen /></div>
+            <div className="land-brand-icon sm" style={{ background: 'none', boxShadow: 'none' }}>
+              <Image src="/Logo.png" alt="BoardyBoo" width={28} height={28} style={{ borderRadius: 6 }} />
+            </div>
             <span className="land-brand-name">BoardyBoo</span>
           </div>
           <p className="land-footer-copy">

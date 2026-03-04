@@ -578,7 +578,7 @@ export default function TutorsPage() {
                             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} style={{ background: 'var(--bg-card)', borderRadius: '24px', padding: '0', width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 50px rgba(0,0,0,0.15)', pointerEvents: 'auto', border: '1px solid var(--border-color)' }}>
 
                                 {/* Header */}
-                                <div style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '24px 24px 0 0', zIndex: 2 }}>
+                                <div style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '24px 24px 0 0', zIndex: 10 }}>
                                     <div>
                                         <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>Create New Tutor</h2>
                                         <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 500, margin: 0 }}>Design a fully personalized AI learning companion.</p>
@@ -591,9 +591,9 @@ export default function TutorsPage() {
                                 <div style={{ padding: '28px 32px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
                                     {/* ── Avatar Selection ─────────────────────── */}
-                                    <div>
+                                    <div style={{ overflow: 'hidden', padding: '4px' }}>
                                         <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--text-main)' }}>Choose a Persona Icon</label>
-                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', padding: '4px' }}>
                                             {AVATAR_OPTIONS.map(opt => (
                                                 <motion.button
                                                     key={opt.src}

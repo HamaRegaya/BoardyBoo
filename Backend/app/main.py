@@ -34,7 +34,7 @@ from firebase_admin import auth as firebase_auth
 
 from app.agents.tutor_agent import build_tutor_agent
 from app.config import settings
-from app.routers import users, dashboard, schedule, tutors
+from app.routers import users, dashboard, schedule, tutors, calendar_router
 from app.utils.errors import (
     ErrorCategory,
     ErrorPayload,
@@ -93,6 +93,7 @@ app.include_router(users.router)
 app.include_router(dashboard.router)
 app.include_router(schedule.router)
 app.include_router(tutors.router)
+app.include_router(calendar_router.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -189,6 +190,24 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     _notify_token = set_ws_notify(
         lambda data: asyncio.ensure_future(_send_json(websocket, data))
     )
+
+    # Set the current user ID and timezone so calendar tools can access per-user tokens
+    from app.mcp.calendar_mcp import current_user_id as _cal_user_ctx
+    from app.mcp.calendar_mcp import current_user_timezone as _cal_tz_ctx
+    _cal_user_ctx.set(user_id)
+    # Load user's timezone from Firestore profile
+    try:
+        from app.db import get_db as _get_tz_db
+        _tz_db = _get_tz_db()
+        if _tz_db:
+            _user_doc = _tz_db.collection("users").document(user_id).get()
+            if _user_doc.exists:
+                _user_tz = _user_doc.to_dict().get("timezone", "")
+                if _user_tz:
+                    _cal_tz_ctx.set(_user_tz)
+                    logger.info("User timezone set to: %s", _user_tz)
+    except Exception as _tz_err:
+        logger.warning("Could not load user timezone: %s", _tz_err)
 
     # Ensure an ADK session exists for this user/session pair.
     session = await session_service.get_session(

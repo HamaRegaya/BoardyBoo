@@ -189,8 +189,10 @@ export default function SchedulePage() {
 
     // Sessions, suggestions, goals from backend
     const [sessions, setSessions] = useState<Session[]>([]);
+    const [calendarEvents, setCalendarEvents] = useState<Session[]>([]);
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [goals, setGoals] = useState<StudyPlan[]>([]);
+    const [calendarConnected, setCalendarConnected] = useState(false);
     const [loading, setLoading] = useState(true);
 
     // UI overlays
@@ -222,9 +224,11 @@ export default function SchedulePage() {
             const token = await getToken();
             if (!token) return;
             const headers = { Authorization: `Bearer ${token}` };
-            const [schedRes, goalsRes] = await Promise.allSettled([
+            const [schedRes, goalsRes, calRes, calStatusRes] = await Promise.allSettled([
                 axios.get(`${API_URL}/api/schedule`, { headers }),
                 axios.get(`${API_URL}/api/dashboard/study-plans`, { headers }),
+                axios.get(`${API_URL}/api/calendar/events?days=14`, { headers }),
+                axios.get(`${API_URL}/api/calendar/status`, { headers }),
             ]);
             if (schedRes.status === "fulfilled") {
                 const mapped = (schedRes.value.data as any[]).map(apiSessionToLocal);
@@ -232,6 +236,29 @@ export default function SchedulePage() {
             }
             if (goalsRes.status === "fulfilled") {
                 setGoals(goalsRes.value.data ?? []);
+            }
+            if (calStatusRes.status === "fulfilled") {
+                setCalendarConnected(calStatusRes.value.data?.connected ?? false);
+            }
+            if (calRes.status === "fulfilled" && calRes.value.data?.events) {
+                const gcalEvents: Session[] = calRes.value.data.events.map((evt: any, idx: number) => {
+                    const start = evt.start ? new Date(evt.start) : new Date();
+                    const end = evt.end ? new Date(evt.end) : new Date();
+                    const durationH = Math.max(0.5, (end.getTime() - start.getTime()) / 3600000);
+                    return {
+                        id: `gcal-${evt.id || idx}`,
+                        title: evt.summary || "(No title)",
+                        tutor: "Google Calendar",
+                        avatar: "/Logo.png",
+                        day: start.getDay(),
+                        startTime: start.getHours(),
+                        duration: durationH,
+                        type: "ai-suggested" as const,
+                        subjectClass: "math" as SubjectClass,
+                        description: evt.description || "",
+                    };
+                });
+                setCalendarEvents(gcalEvents);
             }
         } catch (err) {
             console.error("Failed to fetch schedule:", err);
@@ -259,13 +286,14 @@ export default function SchedulePage() {
         return `${MONTHS[first.getMonth()]} – ${MONTHS[last.getMonth()]} ${first.getFullYear()}`;
     }, [weekDates]);
 
-    // ── Filtered sessions ──────────────────────────────────
+    // ── Filtered sessions (BoardyBoo + Google Calendar) ──
     const filteredSessions = useMemo(() => {
         let list = sessions;
         if (!showAISuggestions) list = list.filter(s => s.type !== "ai-suggested");
         if (subjectFilter !== "all") list = list.filter(s => s.subjectClass === subjectFilter);
-        return list;
-    }, [sessions, showAISuggestions, subjectFilter]);
+        // Merge Google Calendar events (always show them)
+        return [...list, ...calendarEvents];
+    }, [sessions, calendarEvents, showAISuggestions, subjectFilter]);
 
     // ── Session CRUD (wired to backend) ──────────────────
     const addSession = useCallback(async (s: Omit<Session, "id">) => {

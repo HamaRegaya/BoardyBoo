@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, onAuthStateChanged, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "firebase/auth";
+
+import {User, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import axios from "axios";
 
@@ -40,9 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         try {
           const token = await currentUser.getIdToken();
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
           await axios.post(
             "http://localhost:8000/api/users/sync",
-            {}, // Empty body, user data is extracted from the token by the backend
+            { timezone: tz },
             {
               headers: {
                 Authorization: `Bearer ${token}`
@@ -63,7 +65,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      // Extract the Google OAuth access token for Calendar API access
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const googleAccessToken = credential?.accessToken;
+      if (googleAccessToken && result.user) {
+        try {
+          const idToken = await result.user.getIdToken();
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          await axios.post(
+            "http://localhost:8000/api/users/sync",
+            { google_access_token: googleAccessToken, timezone: tz },
+            { headers: { Authorization: `Bearer ${idToken}` } }
+          );
+          console.log("[Auth] Google Calendar token sent to backend");
+        } catch (err) {
+          console.error("[Auth] Failed to sync Google token:", err);
+        }
+      }
       // onAuthStateChanged handles the rest
     } catch (error) {
       console.error("Error signing in with Google", error);

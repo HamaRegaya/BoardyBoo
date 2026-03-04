@@ -2,11 +2,14 @@
 
 Each scheduled session lives at  users/{uid}/schedule/{doc_id}  in Firestore.
 The frontend calendar reads and writes through these endpoints.
+
+When the user has a linked Google Calendar, sessions are also created/updated/deleted
+as Google Calendar events (dual-write).
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,6 +17,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.db import get_db
+from app.utils.google_tokens import get_calendar_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -99,7 +103,7 @@ async def create_scheduled_session(
     body: ScheduleSessionCreate,
     user: dict = Depends(get_current_user),
 ):
-    """Create a new scheduled study session."""
+    """Create a new scheduled study session (Firestore + Google Calendar)."""
     uid = user["uid"]
     ref = _schedule_ref(uid)
     if not ref:
@@ -118,7 +122,27 @@ async def create_scheduled_session(
         "subject_class": body.subject_class,
         "created_at": now,
         "updated_at": now,
+        "google_event_id": "",
     }
+
+    # Dual-write: also create a Google Calendar event if connected
+    cal_service = get_calendar_service(uid)
+    if cal_service:
+        try:
+            start_dt = datetime.fromisoformat(body.start_time)
+            end_dt = start_dt + timedelta(hours=body.duration_hours)
+            event_body = {
+                "summary": f"📚 {body.title}",
+                "description": f"Tutor: {body.tutor}\n{body.description}".strip(),
+                "start": {"dateTime": start_dt.isoformat(), "timeZone": "UTC"},
+                "end": {"dateTime": end_dt.isoformat(), "timeZone": "UTC"},
+                "reminders": {"useDefault": False, "overrides": [{"method": "popup", "minutes": 15}]},
+            }
+            gcal_event = cal_service.events().insert(calendarId="primary", body=event_body).execute()
+            data["google_event_id"] = gcal_event.get("id", "")
+            logger.info("Google Calendar event created: %s", data["google_event_id"])
+        except Exception as e:
+            logger.warning("Failed to create Google Calendar event: %s", e)
 
     doc_ref = ref.document()
     doc_ref.set(data)
@@ -169,7 +193,7 @@ async def delete_scheduled_session(
     session_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Delete a scheduled session."""
+    """Delete a scheduled session (Firestore + Google Calendar)."""
     uid = user["uid"]
     ref = _schedule_ref(uid)
     if not ref:
@@ -179,6 +203,17 @@ async def delete_scheduled_session(
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # Dual-write: also delete from Google Calendar
+    google_event_id = doc.to_dict().get("google_event_id")
+    if google_event_id:
+        cal_service = get_calendar_service(uid)
+        if cal_service:
+            try:
+                cal_service.events().delete(calendarId="primary", eventId=google_event_id).execute()
+                logger.info("Google Calendar event deleted: %s", google_event_id)
+            except Exception as e:
+                logger.warning("Failed to delete Google Calendar event: %s", e)
 
     doc_ref.delete()
     logger.info("Schedule session deleted: %s for user %s", session_id, uid)

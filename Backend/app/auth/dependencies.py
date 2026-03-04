@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,16 @@ def verify_firebase_token(credentials: HTTPAuthorizationCredentials = Depends(se
         decoded_token = auth.verify_id_token(token)
         return decoded_token
     except Exception as e:
-        logger.error("Error verifying Firebase ID token: %s", e)
+        # Handle clock skew: retry once after a brief pause
+        if "too early" in str(e).lower():
+            time.sleep(2)
+            try:
+                decoded_token = auth.verify_id_token(token)
+                return decoded_token
+            except Exception as e2:
+                logger.error("Error verifying Firebase ID token (retry): %s", e2)
+        else:
+            logger.error("Error verifying Firebase ID token: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired Firebase authentication token",

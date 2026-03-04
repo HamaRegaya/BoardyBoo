@@ -1,42 +1,51 @@
 """Google Calendar MCP tool-set for the tutor's calendar sub-agent.
 
 Wraps the Google Calendar API v3 so ADK agents can create, list, and
-manage study-session events.  Uses OAuth2 credentials from config.
+manage study-session events.  Uses per-user OAuth tokens stored in
+Firestore — see ``app.utils.google_tokens``.
 
 This module exposes plain functions (not an MCP server process) so they
 integrate as standard ADK FunctionTools.
+
+IMPORTANT: Every tool function is wrapped in try/except so errors are
+returned as dict messages to the agent instead of crashing the live session.
+
+User context is passed via ``current_user_id`` ContextVar, set by the
+WebSocket handler before the ADK runner starts.
 """
 
 from __future__ import annotations
 
+import contextvars
 import datetime
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-
-from app.config import settings
+from app.utils.google_tokens import get_calendar_service
 
 logger = logging.getLogger(__name__)
 
-# In a real deployment you'd load per-user OAuth tokens from Firestore.
-# For the hackathon demo we use a service-account or a stored refresh token.
+# ContextVars set by the WebSocket handler so tools know which user is active
+current_user_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "current_user_id", default=""
+)
+current_user_timezone: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "current_user_timezone", default="Africa/Tunis"
+)
 
-_service: Any = None
+
+def _get_tz() -> str:
+    """Return the active user's timezone."""
+    return current_user_timezone.get()
 
 
-def _get_service(access_token: Optional[str] = None) -> Any:
-    """Return a Google Calendar API service instance."""
-    global _service
-    if _service is not None:
-        return _service
-    # Fallback: use ADC / service account via google-auth
-    import google.auth
-    creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/calendar"])
-    _service = build("calendar", "v3", credentials=creds, cache_discovery=False)
-    return _service
+def _get_service():
+    """Return a Calendar API service for the current user (from ContextVar)."""
+    uid = current_user_id.get()
+    if not uid:
+        logger.warning("No current_user_id set — calendar tools cannot access user calendar")
+        return None
+    return get_calendar_service(uid)
 
 
 # ── Calendar Tools ────────────────────────────────────────────────────────────
@@ -47,7 +56,7 @@ def create_study_session(
     start_time: str,
     duration_minutes: int = 60,
     description: str = "",
-    timezone: str = "America/Los_Angeles",
+    timezone: str = "",
 ) -> Dict[str, Any]:
     """Create a study-session event on the student's Google Calendar.
 
@@ -64,39 +73,46 @@ def create_study_session(
     timezone:
         IANA timezone string.
     """
-    service = _get_service()
+    try:
+        tz = timezone or _get_tz()
+        service = _get_service()
+        if not service:
+            return {"status": "error", "message": "Google Calendar is not connected. Please ask the student to sign out and sign back in to grant calendar access."}
 
-    start_dt = datetime.datetime.fromisoformat(start_time)
-    end_dt = start_dt + datetime.timedelta(minutes=duration_minutes)
+        start_dt = datetime.datetime.fromisoformat(start_time)
+        end_dt = start_dt + datetime.timedelta(minutes=duration_minutes)
 
-    event_body = {
-        "summary": summary,
-        "description": description,
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": timezone},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": timezone},
-        "reminders": {
-            "useDefault": False,
-            "overrides": [
-                {"method": "popup", "minutes": 15},
-            ],
-        },
-    }
+        event_body = {
+            "summary": summary,
+            "description": description,
+            "start": {"dateTime": start_dt.isoformat(), "timeZone": tz},
+            "end": {"dateTime": end_dt.isoformat(), "timeZone": tz},
+            "reminders": {
+                "useDefault": False,
+                "overrides": [
+                    {"method": "popup", "minutes": 15},
+                ],
+            },
+        }
 
-    event = service.events().insert(calendarId="primary", body=event_body).execute()
-    logger.info("Calendar event created: %s (%s)", event.get("id"), summary)
-    return {
-        "status": "ok",
-        "event_id": event.get("id"),
-        "html_link": event.get("htmlLink"),
-        "summary": summary,
-        "start": start_dt.isoformat(),
-        "end": end_dt.isoformat(),
-    }
+        event = service.events().insert(calendarId="primary", body=event_body).execute()
+        logger.info("Calendar event created: %s (%s)", event.get("id"), summary)
+        return {
+            "status": "ok",
+            "event_id": event.get("id"),
+            "html_link": event.get("htmlLink"),
+            "summary": summary,
+            "start": start_dt.isoformat(),
+            "end": end_dt.isoformat(),
+        }
+    except Exception as e:
+        logger.error("create_study_session failed: %s", e)
+        return {"status": "error", "message": f"Failed to create calendar event: {e}"}
 
 
 def list_upcoming_sessions(
     max_results: int = 10,
-    timezone: str = "America/Los_Angeles",
+    timezone: str = "",
 ) -> Dict[str, Any]:
     """List upcoming calendar events.
 
@@ -107,33 +123,83 @@ def list_upcoming_sessions(
     timezone:
         IANA timezone.
     """
-    service = _get_service()
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    try:
+        tz = timezone or _get_tz()
+        service = _get_service()
+        if not service:
+            return {"status": "error", "message": "Google Calendar is not connected. Please ask the student to sign out and sign back in to grant calendar access."}
 
-    result = (
-        service.events()
-        .list(
-            calendarId="primary",
-            timeMin=now,
-            maxResults=max_results,
-            singleEvents=True,
-            orderBy="startTime",
-            timeZone=timezone,
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        result = (
+            service.events()
+            .list(
+                calendarId="primary",
+                timeMin=now,
+                maxResults=max_results,
+                singleEvents=True,
+                orderBy="startTime",
+                timeZone=tz,
+            )
+            .execute()
         )
-        .execute()
-    )
 
-    events = []
-    for item in result.get("items", []):
-        events.append({
-            "id": item.get("id"),
-            "summary": item.get("summary"),
-            "start": item.get("start", {}).get("dateTime"),
-            "end": item.get("end", {}).get("dateTime"),
-            "html_link": item.get("htmlLink"),
-        })
+        events = []
+        for item in result.get("items", []):
+            events.append({
+                "id": item.get("id"),
+                "summary": item.get("summary"),
+                "start": item.get("start", {}).get("dateTime"),
+                "end": item.get("end", {}).get("dateTime"),
+                "html_link": item.get("htmlLink"),
+            })
 
-    return {"status": "ok", "events": events, "count": len(events)}
+        return {"status": "ok", "events": events, "count": len(events)}
+    except Exception as e:
+        logger.error("list_upcoming_sessions failed: %s", e)
+        return {"status": "error", "message": f"Failed to list calendar events: {e}"}
+
+
+def check_availability(
+    date: str,
+    timezone: str = "",
+) -> Dict[str, Any]:
+    """Check free/busy status for a given date.
+
+    Parameters
+    ----------
+    date:
+        ISO 8601 date string (e.g. "2026-03-05").
+    timezone:
+        IANA timezone string.
+    """
+    try:
+        tz = timezone or _get_tz()
+        service = _get_service()
+        if not service:
+            return {"status": "error", "message": "Google Calendar is not connected. Please ask the student to sign out and sign back in to grant calendar access."}
+
+        day_start = datetime.datetime.fromisoformat(date)
+        day_end = day_start + datetime.timedelta(days=1)
+
+        body = {
+            "timeMin": day_start.isoformat() + "Z",
+            "timeMax": day_end.isoformat() + "Z",
+            "timeZone": tz,
+            "items": [{"id": "primary"}],
+        }
+        result = service.freebusy().query(body=body).execute()
+        busy = result.get("calendars", {}).get("primary", {}).get("busy", [])
+
+        return {
+            "status": "ok",
+            "date": date,
+            "busy_slots": busy,
+            "is_fully_free": len(busy) == 0,
+        }
+    except Exception as e:
+        logger.error("check_availability failed: %s", e)
+        return {"status": "error", "message": f"Failed to check availability: {e}"}
 
 
 def delete_study_session(event_id: str) -> Dict[str, Any]:
@@ -143,17 +209,24 @@ def delete_study_session(event_id: str) -> Dict[str, Any]:
     ----------
     event_id:  The Google Calendar event ID.
     """
-    service = _get_service()
-    service.events().delete(calendarId="primary", eventId=event_id).execute()
-    logger.info("Calendar event deleted: %s", event_id)
-    return {"status": "ok", "message": f"Event {event_id} deleted."}
+    try:
+        service = _get_service()
+        if not service:
+            return {"status": "error", "message": "Google Calendar is not connected."}
+
+        service.events().delete(calendarId="primary", eventId=event_id).execute()
+        logger.info("Calendar event deleted: %s", event_id)
+        return {"status": "ok", "message": f"Event {event_id} deleted."}
+    except Exception as e:
+        logger.error("delete_study_session failed: %s", e)
+        return {"status": "error", "message": f"Failed to delete calendar event: {e}"}
 
 
 def reschedule_study_session(
     event_id: str,
     new_start_time: str,
     duration_minutes: int = 60,
-    timezone: str = "America/Los_Angeles",
+    timezone: str = "",
 ) -> Dict[str, Any]:
     """Reschedule an existing study session.
 
@@ -164,26 +237,34 @@ def reschedule_study_session(
     duration_minutes:  Duration in minutes.
     timezone:  IANA timezone.
     """
-    service = _get_service()
-    start_dt = datetime.datetime.fromisoformat(new_start_time)
-    end_dt = start_dt + datetime.timedelta(minutes=duration_minutes)
+    try:
+        tz = timezone or _get_tz()
+        service = _get_service()
+        if not service:
+            return {"status": "error", "message": "Google Calendar is not connected."}
 
-    body = {
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": timezone},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": timezone},
-    }
-    event = (
-        service.events()
-        .patch(calendarId="primary", eventId=event_id, body=body)
-        .execute()
-    )
-    logger.info("Calendar event rescheduled: %s → %s", event_id, new_start_time)
-    return {
-        "status": "ok",
-        "event_id": event.get("id"),
-        "new_start": start_dt.isoformat(),
-        "new_end": end_dt.isoformat(),
-    }
+        start_dt = datetime.datetime.fromisoformat(new_start_time)
+        end_dt = start_dt + datetime.timedelta(minutes=duration_minutes)
+
+        body = {
+            "start": {"dateTime": start_dt.isoformat(), "timeZone": tz},
+            "end": {"dateTime": end_dt.isoformat(), "timeZone": tz},
+        }
+        event = (
+            service.events()
+            .patch(calendarId="primary", eventId=event_id, body=body)
+            .execute()
+        )
+        logger.info("Calendar event rescheduled: %s → %s", event_id, new_start_time)
+        return {
+            "status": "ok",
+            "event_id": event.get("id"),
+            "new_start": start_dt.isoformat(),
+            "new_end": end_dt.isoformat(),
+        }
+    except Exception as e:
+        logger.error("reschedule_study_session failed: %s", e)
+        return {"status": "error", "message": f"Failed to reschedule: {e}"}
 
 
 # ── Export ────────────────────────────────────────────────────────────────────
@@ -191,6 +272,7 @@ def reschedule_study_session(
 calendar_tools = [
     create_study_session,
     list_upcoming_sessions,
+    check_availability,
     delete_study_session,
     reschedule_study_session,
 ]

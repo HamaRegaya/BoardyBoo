@@ -113,10 +113,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="topbar-logo-zone">
                         <Link href="/" className="dash-brand">
                             <div className="dash-brand-icon">
-                                <Sparkles size={18} fill="currentColor" />
+                                <Image src="/Logo.png" alt="BoardyBoo" width={40} height={40} style={{ borderRadius: 10, background: '#fff', padding: 2 }} />
                             </div>
                             <div className="dash-brand-text">
-                                <span className="dash-brand-name">Magic Tutor</span>
+                                <span className="dash-brand-name">BoardyBoo</span>
                                 <span className="dash-brand-sub">Student Account</span>
                             </div>
                         </Link>

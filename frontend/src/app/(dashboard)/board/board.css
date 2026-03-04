@@ -376,7 +376,7 @@
 }
 
 .activity-item.agent .activity-avatar {
-    background: linear-gradient(135deg, var(--primary), var(--accent));
+    background: #ffffff;
     color: white;
 }
 

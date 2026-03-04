@@ -118,6 +118,14 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
           base.text = el.text ?? "";
           base.fontSize = el.fontSize ?? 20;
           base.fontFamily = el.fontFamily ?? 1;
+          // Don't set width/height on text — let Excalidraw auto-size.
+          // If the AI provided explicit width (e.g. for flowchart labels),
+          // keep it; otherwise remove any width that was set above so
+          // convertToExcalidrawElements doesn't clip the text.
+          if (el.width == null) delete base.width;
+          if (el.height == null) delete base.height;
+          // Tell Excalidraw this is an auto-resizing text container
+          base.autoResize = true;
         }
 
         // Arrow/line elements
@@ -150,6 +158,21 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
         } else {
           convertedStandard = skeletons;
         }
+
+        // Post-process: ensure text elements without an explicit AI width
+        // are set to auto-resize so Excalidraw doesn't clip them.
+        const aiWidthByIdx = new Map<number, boolean>();
+        standardElements.forEach((el, idx) => {
+          if ((el.type === "text" || !el.type) && el.width != null) {
+            aiWidthByIdx.set(idx, true);
+          }
+        });
+        convertedStandard = convertedStandard.map((el, idx) => {
+          if (el.type === "text" && !aiWidthByIdx.get(idx)) {
+            return { ...el, autoResize: true };
+          }
+          return el;
+        });
       }
 
       // Build image elements manually (convertToExcalidrawElements doesn't support images)

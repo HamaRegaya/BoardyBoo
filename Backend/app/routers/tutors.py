@@ -46,7 +46,7 @@ class TutorCreate(BaseModel):
     subjects: List[str] = []
     personality: str = ""
     level: str = "Intermediate"
-    voice: str = "default"
+    voice: str = "Zephyr"
     tags: List[TagIn] = []
     styles: List[TeachingStyleIn] = []
 

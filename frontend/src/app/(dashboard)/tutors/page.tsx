@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload, Loader2, Trash2 } from "lucide-react";
+import { Sparkles, Search, Plus, X, ChevronDown, Check, Sigma, Flame, Lock, BookOpen, Code, Play, GraduationCap, Star, Lightbulb, Heart, Settings2, ArrowRight, MessageCircle, Eye, Pen, Zap, Globe, Palette, Brain, Target, Volume2, Upload, Loader2, Trash2, Square } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,6 +30,7 @@ export type Tutor = {
     subjects: string[];
     personality: string;
     level: string;
+    voice: string;
     stats: { sessions: string; rating: string };
     styles: TeachingStyle[];
 };
@@ -57,11 +58,39 @@ const TEACHING_STYLE_OPTIONS: { key: string; icon: React.ReactNode; name: string
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
 
 const VOICE_OPTIONS = [
-    { value: "default", label: "Default" },
-    { value: "calm", label: "Calm & Soothing" },
-    { value: "energetic", label: "Energetic" },
-    { value: "professional", label: "Professional" },
+    { value: "Zephyr", label: "Zephyr" },
+    { value: "Puck", label: "Puck" },
+    { value: "Charon", label: "Charon" },
+    { value: "Kore", label: "Kore" },
+    { value: "Fenrir", label: "Fenrir" },
+    { value: "Leda", label: "Leda" },
+    { value: "Orus", label: "Orus" },
+    { value: "Aoede", label: "Aoede" },
+    { value: "Callirrhoe", label: "Callirrhoe" },
+    { value: "Autonoe", label: "Autonoe" },
+    { value: "Enceladus", label: "Enceladus" },
+    { value: "Iapetus", label: "Iapetus" },
+    { value: "Umbriel", label: "Umbriel" },
+    { value: "Algieba", label: "Algieba" },
+    { value: "Despina", label: "Despina" },
+    { value: "Erinome", label: "Erinome" },
+    { value: "Algenib", label: "Algenib" },
+    { value: "Rasalgethi", label: "Rasalgethi" },
+    { value: "Laomedeia", label: "Laomedeia" },
+    { value: "Achernar", label: "Achernar" },
+    { value: "Alnilam", label: "Alnilam" },
+    { value: "Schedar", label: "Schedar" },
+    { value: "Gacrux", label: "Gacrux" },
+    { value: "Pulcherrima", label: "Pulcherrima" },
+    { value: "Achird", label: "Achird" },
+    { value: "Zubenelgenubi", label: "Zubenelgenubi" },
+    { value: "Vindemiatrix", label: "Vindemiatrix" },
+    { value: "Sadachbia", label: "Sadachbia" },
+    { value: "Sadaltager", label: "Sadaltager" },
+    { value: "Sulafat", label: "Sulafat" },
 ];
+
+const VOICE_SAMPLE_URL = (name: string) => `https://www.gstatic.com/aistudio/voices/samples/${name}.wav`;
 
 export default function TutorsPage() {
     const { getToken } = useAuth();
@@ -87,7 +116,9 @@ export default function TutorsPage() {
     const [formAvatar, setFormAvatar] = useState(AVATAR_OPTIONS[0].src);
     const [formStyles, setFormStyles] = useState<string[]>([]);
     const [formLevel, setFormLevel] = useState("Intermediate");
-    const [formVoice, setFormVoice] = useState("default");
+    const [formVoice, setFormVoice] = useState("Zephyr");
+    const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+    const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
     const [formDesc, setFormDesc] = useState("");
     const [formTags, setFormTags] = useState("");
 
@@ -105,10 +136,21 @@ export default function TutorsPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Stop voice sample when modals close
+    useEffect(() => {
+        if (!selectedTutor && !showCreateModal && voiceAudioRef.current) {
+            voiceAudioRef.current.pause();
+            voiceAudioRef.current = null;
+            setPlayingVoice(null);
+        }
+    }, [selectedTutor, showCreateModal]);
+
     const resetCreateForm = () => {
         setFormName(""); setFormTitle(""); setFormSubject(""); setFormPersonality("");
         setFormAvatar(AVATAR_OPTIONS[0].src); setFormStyles([]); setFormLevel("Intermediate");
-        setFormVoice("default"); setFormDesc(""); setFormTags(""); setOpenDropdown(null);
+        setFormVoice("Zephyr"); setFormDesc(""); setFormTags(""); setOpenDropdown(null);
+        if (voiceAudioRef.current) { voiceAudioRef.current.pause(); voiceAudioRef.current = null; }
+        setPlayingVoice(null);
     };
 
     const toggleFormStyle = (key: string) => {
@@ -128,6 +170,7 @@ export default function TutorsPage() {
         subjects: raw.subjects ?? [],
         personality: raw.personality ?? "",
         level: raw.level ?? "Intermediate",
+        voice: raw.voice ?? "Zephyr",
         stats: raw.stats ?? { sessions: "0", rating: "N/A" },
         styles: raw.styles ?? [],
         tags: raw.tags ?? [],
@@ -481,8 +524,21 @@ export default function TutorsPage() {
                                                     <Image src={selectedTutor.avatar} alt={selectedTutor.name} width={120} height={120} style={{ objectFit: 'contain' }} />
                                                 ) : <span style={{ fontSize: '32px', color: 'var(--text-muted)', fontWeight: 700 }}>{selectedTutor.placeholder}</span>}
                                             </div>
-                                            <button style={{ background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} className="hover:bg-slate-50 transition-colors">
-                                                <Play size={14} fill="currentColor" /> Voice Sample
+                                            <button onClick={() => {
+                                                if (playingVoice === selectedTutor.voice) {
+                                                    voiceAudioRef.current?.pause();
+                                                    voiceAudioRef.current = null;
+                                                    setPlayingVoice(null);
+                                                } else {
+                                                    if (voiceAudioRef.current) { voiceAudioRef.current.pause(); voiceAudioRef.current = null; }
+                                                    const audio = new Audio(VOICE_SAMPLE_URL(selectedTutor.voice || 'Zephyr'));
+                                                    audio.onended = () => { setPlayingVoice(null); voiceAudioRef.current = null; };
+                                                    audio.play();
+                                                    voiceAudioRef.current = audio;
+                                                    setPlayingVoice(selectedTutor.voice);
+                                                }
+                                            }} style={{ background: 'white', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} className="hover:bg-slate-50 transition-colors">
+                                                {playingVoice === selectedTutor.voice ? <><Square size={14} fill="currentColor" /> Stop Voice</> : <><Play size={14} fill="currentColor" /> Voice Sample</>}
                                             </button>
                                         </div>
 
@@ -767,26 +823,54 @@ export default function TutorsPage() {
                                     <div style={{ display: 'flex', gap: '16px' }}>
                                         <div style={{ flex: 1 }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Volume2 size={14} /> Voice Tone</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Volume2 size={14} /> Voice</span>
                                             </label>
                                             <div style={{ position: 'relative' }}>
                                                 <button type="button" onClick={() => setOpenDropdown(openDropdown === 'voice' ? null : 'voice')}
                                                     style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: openDropdown === 'voice' ? '1.5px solid var(--primary)' : '1px solid var(--border-color)', outline: 'none', fontSize: '15px', background: 'var(--bg-main)', color: 'var(--text-main)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', transition: 'border 0.2s, box-shadow 0.2s', boxShadow: openDropdown === 'voice' ? '0 0 0 3px rgba(79,70,229,0.1)' : 'none' }}>
-                                                    <span>{VOICE_OPTIONS.find(v => v.value === formVoice)?.label ?? 'Default'}</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {formVoice}
+                                                        {playingVoice === formVoice && (
+                                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)', animation: 'pulse 1s ease-in-out infinite' }} />
+                                                        )}
+                                                    </span>
                                                     <motion.span animate={{ rotate: openDropdown === 'voice' ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown size={16} color="var(--text-muted)" /></motion.span>
                                                 </button>
                                                 <AnimatePresence>
                                                     {openDropdown === 'voice' && (
                                                         <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.15 }}
-                                                            style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, overflow: 'hidden', padding: '4px' }}>
+                                                            style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 50, maxHeight: '260px', overflowY: 'auto', padding: '4px' }}>
                                                             {VOICE_OPTIONS.map(opt => (
-                                                                <button key={opt.value} type="button" onClick={() => { setFormVoice(opt.value); setOpenDropdown(null); }}
-                                                                    style={{ width: '100%', padding: '11px 14px', border: 'none', background: formVoice === opt.value ? '#eef2ff' : 'transparent', color: formVoice === opt.value ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formVoice === opt.value ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
-                                                                    onMouseEnter={e => { if (formVoice !== opt.value) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-main)'; }}
-                                                                    onMouseLeave={e => { if (formVoice !== opt.value) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                                                                    <span>{opt.label}</span>
-                                                                    {formVoice === opt.value && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
-                                                                </button>
+                                                                <div key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <button type="button" onClick={() => { setFormVoice(opt.value); setOpenDropdown(null); }}
+                                                                        style={{ flex: 1, padding: '9px 12px', border: 'none', background: formVoice === opt.value ? '#eef2ff' : 'transparent', color: formVoice === opt.value ? 'var(--primary)' : 'var(--text-main)', fontSize: '14px', fontWeight: formVoice === opt.value ? 600 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px', transition: 'background 0.15s' }}
+                                                                        onMouseEnter={e => { if (formVoice !== opt.value) e.currentTarget.style.background = 'var(--bg-main)'; }}
+                                                                        onMouseLeave={e => { if (formVoice !== opt.value) e.currentTarget.style.background = 'transparent'; }}>
+                                                                        <span>{opt.label}</span>
+                                                                        {formVoice === opt.value && <Check size={14} color="var(--primary)" strokeWidth={2.5} />}
+                                                                    </button>
+                                                                    <button type="button" title={playingVoice === opt.value ? 'Stop' : 'Play sample'}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (playingVoice === opt.value) {
+                                                                                voiceAudioRef.current?.pause();
+                                                                                voiceAudioRef.current = null;
+                                                                                setPlayingVoice(null);
+                                                                            } else {
+                                                                                if (voiceAudioRef.current) { voiceAudioRef.current.pause(); voiceAudioRef.current = null; }
+                                                                                const audio = new Audio(VOICE_SAMPLE_URL(opt.value));
+                                                                                audio.onended = () => { setPlayingVoice(null); voiceAudioRef.current = null; };
+                                                                                audio.play();
+                                                                                voiceAudioRef.current = audio;
+                                                                                setPlayingVoice(opt.value);
+                                                                            }
+                                                                        }}
+                                                                        style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: playingVoice === opt.value ? '#eef2ff' : 'transparent', color: playingVoice === opt.value ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
+                                                                        onMouseEnter={e => { if (playingVoice !== opt.value) e.currentTarget.style.background = 'var(--bg-main)'; }}
+                                                                        onMouseLeave={e => { if (playingVoice !== opt.value) e.currentTarget.style.background = 'transparent'; }}>
+                                                                        {playingVoice === opt.value ? <Square size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+                                                                    </button>
+                                                                </div>
                                                             ))}
                                                         </motion.div>
                                                     )}

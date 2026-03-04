@@ -588,7 +588,7 @@ export default function TutorsPage() {
                                     </button>
                                 </div>
 
-                                <div style={{ padding: '28px 32px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                                <div ref={dropdownRef} style={{ padding: '28px 32px 32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
                                     {/* ── Avatar Selection ─────────────────────── */}
                                     <div style={{ overflow: 'hidden', padding: '4px' }}>
@@ -650,7 +650,7 @@ export default function TutorsPage() {
                                     </div>
 
                                     {/* ── Subject & Personality Row ──────────── */}
-                                    <div ref={dropdownRef} style={{ display: 'flex', gap: '16px' }}>
+                                    <div style={{ display: 'flex', gap: '16px' }}>
                                         <div style={{ flex: 1, position: 'relative' }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)' }}>Subject Expertise *</label>
                                             <button type="button" onClick={() => setOpenDropdown(openDropdown === 'subject' ? null : 'subject')}

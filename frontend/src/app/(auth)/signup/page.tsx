@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { motion } from "framer-motion";
-import { User, Mail, Lock, Eye, EyeOff, Sparkles } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 
 /* ── Google icon ───────────────────────────────────── */
 const IconGoogle = () => (
@@ -180,20 +181,7 @@ export default function SignUpPage() {
 
         {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", position: "relative", zIndex: 1 }}>
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "10px",
-              background: "linear-gradient(135deg, #6366f1, #7c3aed)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-            }}
-          >
-            <Sparkles size={18} />
-          </div>
+          <Image src="/Logo.png" alt="BoardyBoo" width={40} height={40} style={{ borderRadius: 10 }} />
           <span style={{ fontSize: "16px", fontWeight: 700, color: "#1e1b4b" }}>
             BoardyBoo
           </span>

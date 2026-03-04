@@ -14,6 +14,8 @@ import {
     PenTool,
     Flame,
     BarChart3,
+    Sparkles,
+    Plus,
 } from "lucide-react";
 import axios from "axios";
 
@@ -35,6 +37,15 @@ interface Session {
     status?: string;
 }
 
+interface ScheduledSession {
+    id: string;
+    title: string;
+    start_time: string;
+    duration_hours: number;
+    subject_class?: string;
+    tutor?: string;
+}
+
 interface Streak {
     current_streak: number;
     longest_streak: number;
@@ -53,6 +64,7 @@ export default function Dashboard() {
     const { user, getToken } = useAuth();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [recentSessions, setRecentSessions] = useState<Session[]>([]);
+    const [upcoming, setUpcoming] = useState<ScheduledSession[]>([]);
     const [streak, setStreak] = useState<Streak | null>(null);
     const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
     const [progress, setProgress] = useState<Progress[]>([]);
@@ -69,13 +81,14 @@ export default function Dashboard() {
                 const headers = { Authorization: `Bearer ${token}` };
 
                 // Fetch all dashboard data in parallel
-                const [statsRes, sessionsRes, streakRes, topicsRes, progressRes] =
+                const [statsRes, sessionsRes, streakRes, topicsRes, progressRes, scheduleRes] =
                     await Promise.allSettled([
                         axios.get(`${API_URL}/api/dashboard/stats`, { headers }),
                         axios.get(`${API_URL}/api/dashboard/sessions?limit=5`, { headers }),
                         axios.get(`${API_URL}/api/dashboard/streak`, { headers }),
                         axios.get(`${API_URL}/api/dashboard/topics`, { headers }),
                         axios.get(`${API_URL}/api/dashboard/progress`, { headers }),
+                        axios.get(`${API_URL}/api/schedule`, { headers }),
                     ]);
 
                 if (statsRes.status === "fulfilled") setStats(statsRes.value.data);
@@ -83,6 +96,14 @@ export default function Dashboard() {
                 if (streakRes.status === "fulfilled") setStreak(streakRes.value.data);
                 if (topicsRes.status === "fulfilled") setSuggestedTopics(topicsRes.value.data.topics ?? []);
                 if (progressRes.status === "fulfilled") setProgress(progressRes.value.data);
+                if (scheduleRes.status === "fulfilled") {
+                    const now = new Date();
+                    const futureOnly = (scheduleRes.value.data as ScheduledSession[])
+                        .filter((s) => new Date(s.start_time) >= now)
+                        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                        .slice(0, 3);
+                    setUpcoming(futureOnly);
+                }
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {
@@ -107,32 +128,334 @@ export default function Dashboard() {
 
     /* ── Render ────────────────────────────────────── */
 
+    const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+    const formatTime12 = (iso: string) => {
+        const d = new Date(iso);
+        let h = d.getHours();
+        const m = d.getMinutes();
+        const ampm = h >= 12 ? "PM" : "AM";
+        h = h % 12 || 12;
+        return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
+    };
+
+    const formatDuration = (hrs: number) => {
+        const mins = Math.round(hrs * 60);
+        return mins >= 60 ? `${Math.round(mins / 60)}h ${mins % 60 ? `${mins % 60} min` : ""}`.trim() : `${mins} min`;
+    };
+
     return (
         <div className="dash-content fade-in">
-            {/* ── Welcome Header ────────────────────────── */}
-            <div className="dash-header">
-                <div>
-                    <h1 className="dash-title">Welcome back, {user?.displayName?.split(" ")[0] || "Student"}! 👋</h1>
-                    <p className="dash-subtitle">Ready for another session? Here is your progress so far.</p>
-                </div>
-                <Link
-                    href="/board"
-                    className="btn-primary"
+            {/* ── Hero Section ─────────────────────────────── */}
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.6fr 1fr",
+                    gap: "24px",
+                    marginBottom: "36px",
+                }}
+            >
+                {/* Hero Card */}
+                <div
                     style={{
-                        padding: "0.75rem 1.5rem",
-                        borderRadius: "12px",
+                        background: "linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #a855f7 100%)",
+                        borderRadius: "20px",
+                        padding: "40px 44px",
+                        position: "relative",
+                        overflow: "hidden",
                         display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        fontWeight: 600,
-                        background: "var(--brand-main)",
-                        color: "white",
-                        textDecoration: "none",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        minHeight: "220px",
                     }}
                 >
-                    <Play size={18} fill="currentColor" />
-                    Start New Session
-                </Link>
+                    {/* Decorative circles */}
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: "-40px",
+                            right: "-40px",
+                            width: "200px",
+                            height: "200px",
+                            borderRadius: "50%",
+                            background: "rgba(255,255,255,0.08)",
+                        }}
+                    />
+                    <div
+                        style={{
+                            position: "absolute",
+                            bottom: "-60px",
+                            right: "80px",
+                            width: "160px",
+                            height: "160px",
+                            borderRadius: "50%",
+                            background: "rgba(255,255,255,0.05)",
+                        }}
+                    />
+
+                    {/* Badge */}
+                    <div
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            background: "rgba(255,255,255,0.18)",
+                            backdropFilter: "blur(8px)",
+                            padding: "6px 14px",
+                            borderRadius: "20px",
+                            width: "fit-content",
+                            marginBottom: "18px",
+                        }}
+                    >
+                        <Sparkles size={14} color="white" />
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "white", letterSpacing: "0.5px" }}>
+                            AI Powered Session
+                        </span>
+                    </div>
+
+                    {/* Greeting */}
+                    <h1
+                        style={{
+                            fontSize: "32px",
+                            fontWeight: 800,
+                            color: "white",
+                            margin: "0 0 8px 0",
+                            letterSpacing: "-0.5px",
+                        }}
+                    >
+                        Hello, {user?.displayName?.split(" ")[0] || "Student"}!
+                    </h1>
+                    <p
+                        style={{
+                            fontSize: "15px",
+                            color: "rgba(255,255,255,0.85)",
+                            margin: "0 0 28px 0",
+                            maxWidth: "400px",
+                            lineHeight: 1.6,
+                        }}
+                    >
+                        Ready to tackle your goals today? Your personal AI tutor is prepared for the next chapter.
+                    </p>
+
+                    {/* Buttons */}
+                    <div style={{ display: "flex", gap: "12px", position: "relative", zIndex: 1 }}>
+                        <Link
+                            href="/board"
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                padding: "12px 24px",
+                                borderRadius: "12px",
+                                background: "white",
+                                color: "#6366f1",
+                                fontWeight: 700,
+                                fontSize: "14px",
+                                textDecoration: "none",
+                                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                                transition: "transform 0.2s, box-shadow 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = "translateY(-2px)";
+                                e.currentTarget.style.boxShadow = "0 6px 24px rgba(0,0,0,0.18)";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = "translateY(0)";
+                                e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.12)";
+                            }}
+                        >
+                            <Play size={16} fill="currentColor" />
+                            Start New Session
+                        </Link>
+                        <Link
+                            href="/schedule"
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                padding: "12px 24px",
+                                borderRadius: "12px",
+                                background: "transparent",
+                                color: "white",
+                                fontWeight: 600,
+                                fontSize: "14px",
+                                textDecoration: "none",
+                                border: "1.5px solid rgba(255,255,255,0.4)",
+                                transition: "background 0.2s, border-color 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.6)";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "transparent";
+                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
+                            }}
+                        >
+                            View Plan
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Upcoming Sessions */}
+                <div
+                    style={{
+                        background: "white",
+                        borderRadius: "20px",
+                        border: "1px solid var(--border)",
+                        padding: "24px 28px",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
+                >
+                    {/* Header */}
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: "20px",
+                        }}
+                    >
+                        <h2 style={{ fontSize: "20px", fontWeight: 700, margin: 0, color: "var(--fg)" }}>
+                            Upcoming
+                        </h2>
+                        <Link
+                            href="/schedule"
+                            style={{
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "#f97316",
+                                textDecoration: "none",
+                                transition: "opacity 0.2s",
+                            }}
+                        >
+                            See all
+                        </Link>
+                    </div>
+
+                    {/* Session list */}
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px" }}>
+                        {loadingData ? (
+                            <p style={{ color: "var(--muted)", fontSize: "14px" }}>Loading…</p>
+                        ) : upcoming.length > 0 ? (
+                            upcoming.map((s) => {
+                                const d = new Date(s.start_time);
+                                return (
+                                    <div
+                                        key={s.id}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "16px",
+                                            padding: "10px 0",
+                                            borderBottom: "1px solid var(--border)",
+                                        }}
+                                    >
+                                        {/* Date badge */}
+                                        <div
+                                            style={{
+                                                minWidth: "52px",
+                                                textAlign: "center",
+                                                padding: "8px 6px",
+                                                borderRadius: "12px",
+                                                background: "#fef2f2",
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    fontSize: "11px",
+                                                    fontWeight: 700,
+                                                    color: "#ef4444",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.5px",
+                                                }}
+                                            >
+                                                {MONTH_SHORT[d.getMonth()]}
+                                            </div>
+                                            <div
+                                                style={{
+                                                    fontSize: "22px",
+                                                    fontWeight: 800,
+                                                    color: "var(--fg)",
+                                                    lineHeight: 1.1,
+                                                }}
+                                            >
+                                                {d.getDate()}
+                                            </div>
+                                        </div>
+                                        {/* Details */}
+                                        <div>
+                                            <h4
+                                                style={{
+                                                    margin: 0,
+                                                    fontSize: "14px",
+                                                    fontWeight: 600,
+                                                    color: "var(--fg)",
+                                                }}
+                                            >
+                                                {s.title}
+                                            </h4>
+                                            <p
+                                                style={{
+                                                    margin: "2px 0 0 0",
+                                                    fontSize: "13px",
+                                                    color: "var(--muted)",
+                                                }}
+                                            >
+                                                {formatTime12(s.start_time)} • {formatDuration(s.duration_hours)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <p
+                                style={{
+                                    color: "var(--muted)",
+                                    fontSize: "14px",
+                                    margin: "8px 0",
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                No upcoming sessions scheduled yet.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Schedule button */}
+                    <Link
+                        href="/schedule"
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "6px",
+                            marginTop: "auto",
+                            paddingTop: "16px",
+                            border: "2px dashed var(--border)",
+                            borderRadius: "12px",
+                            padding: "12px",
+                            color: "var(--muted)",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            textDecoration: "none",
+                            transition: "border-color 0.2s, color 0.2s",
+                            cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = "#6366f1";
+                            e.currentTarget.style.color = "#6366f1";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = "var(--border)";
+                            e.currentTarget.style.color = "var(--muted)";
+                        }}
+                    >
+                        <Plus size={16} />
+                        Schedule Session
+                    </Link>
+                </div>
             </div>
 
             {/* ── Quick Stats Grid ──────────────────────── */}

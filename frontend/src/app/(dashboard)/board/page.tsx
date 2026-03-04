@@ -39,6 +39,11 @@ export default function Page() {
   // Snapshot auto-send interval ref
   const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Debounced canvas-change snapshot: sends a snapshot 2.5 s after the
+  // user stops drawing so the tutor sees changes almost immediately.
+  const canvasChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const CANVAS_CHANGE_DEBOUNCE_MS = 2500;
+
   // ── WebSocket hook ──────────────────────────────────────────────────────
 
   const {
@@ -120,6 +125,10 @@ export default function Page() {
       clearInterval(snapshotIntervalRef.current);
       snapshotIntervalRef.current = null;
     }
+    if (canvasChangeTimerRef.current) {
+      clearTimeout(canvasChangeTimerRef.current);
+      canvasChangeTimerRef.current = null;
+    }
     disconnect();
     clearPlayback();
   }, [disconnect, isRecording, stopRecording, clearPlayback]);
@@ -146,6 +155,22 @@ export default function Page() {
       sendImage(snapshot, "image/jpeg");
     }
   }, [sendImage]);
+
+  // ── Debounced canvas change handler ─────────────────────────────────────
+  //    Fires a canvas snapshot 2.5 s after the user's last stroke/edit so
+  //    the tutor sees changes almost immediately without flooding the WS.
+
+  const handleCanvasChange = useCallback(() => {
+    if (status !== "connected") return;
+    if (canvasChangeTimerRef.current) clearTimeout(canvasChangeTimerRef.current);
+    canvasChangeTimerRef.current = setTimeout(async () => {
+      const snapshot = await canvasRef.current?.getSnapshot();
+      if (snapshot) {
+        sendCanvasSnapshot(snapshot);
+        console.log("[Board] Auto-sent canvas snapshot (user edit detected)");
+      }
+    }, CANVAS_CHANGE_DEBOUNCE_MS);
+  }, [status, sendCanvasSnapshot]);
 
   // ── Auto-start mic when session connects ─────────────────────────────────
 
@@ -256,7 +281,7 @@ export default function Page() {
       <div className="content-area">
         {/* Canvas panel */}
         <div className="canvas-panel">
-          <WhiteboardCanvas ref={canvasRef} canvasCommands={canvasCommands} isGeneratingImage={isGeneratingImage} isSavingProgress={isSavingProgress} />
+          <WhiteboardCanvas ref={canvasRef} canvasCommands={canvasCommands} onCanvasChange={handleCanvasChange} isGeneratingImage={isGeneratingImage} isSavingProgress={isSavingProgress}/>
         </div>
 
         {/* Side panel — transcript */}

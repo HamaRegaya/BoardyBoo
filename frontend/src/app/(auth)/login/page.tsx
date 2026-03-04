@@ -2,20 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { motion } from "framer-motion";
-import "@/app/landing.css";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
-// ── Icons ────────────────────────────────────────────────────────────────
-const IconPen = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 20h9" />
-    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-  </svg>
-);
-
+/* ── Google icon ─────────────────────────────────────── */
 const IconGoogle = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24">
     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -24,16 +18,17 @@ const IconGoogle = () => (
 );
 
 export default function LoginPage() {
-  const { user, loading, loginWithGoogle } = useAuth();
+  const { user, loading, loginWithGoogle, loginWithEmail, resetPassword } = useAuth();
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (!loading && user) {
-      router.push("/dashboard");
-    }
+    if (!loading && user) router.push("/dashboard");
   }, [user, loading, router]);
 
   const handleGoogleLogin = async () => {
@@ -41,113 +36,280 @@ export default function LoginPage() {
       setIsLoggingIn(true);
       setError(null);
       await loginWithGoogle();
-      // Router redirection is handled by the useEffect above once user state updates
     } catch (err: any) {
-      console.error(err);
       setError(err.message || "Failed to sign in with Google.");
       setIsLoggingIn(false);
     }
   };
 
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) { setError("Please fill in all fields."); return; }
+    try {
+      setIsLoggingIn(true);
+      setError(null);
+      await loginWithEmail(email, password);
+    } catch (err: any) {
+      const msg =
+        err.code === "auth/user-not-found" ? "No account with that email." :
+        err.code === "auth/wrong-password" ? "Incorrect password." :
+        err.code === "auth/invalid-credential" ? "Invalid email or password." :
+        err.message || "Failed to sign in.";
+      setError(msg);
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) { setError("Enter your email first, then click Forgot password."); return; }
+    try {
+      await resetPassword(email);
+      setResetSent(true);
+      setError(null);
+    } catch {
+      setError("Could not send reset email. Check the address.");
+    }
+  };
+
   if (loading) {
     return (
-      <div className="land dark" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="land-orb orb-1" />
-        <p style={{ color: "var(--fg-dim)", fontSize: "1.1rem" }}>Loading...</p>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa" }}>
+        <p style={{ color: "#64748b", fontSize: "15px" }}>Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="land dark" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Background elements */}
-      <div className="land-hero-bg" style={{ position: "fixed" }}>
-        <div className="land-orb orb-1" />
-        <div className="land-orb orb-2" />
-        <div className="land-grid-overlay" />
-      </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#fafafa",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        padding: "24px",
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        style={{
+          width: "100%",
+          maxWidth: "420px",
+          background: "white",
+          borderRadius: "24px",
+          padding: "48px 40px",
+          boxShadow: "0 4px 32px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",
+        }}
+      >
+        {/* Header */}
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#1a1a2e", margin: "0 0 6px 0" }}>
+          Sign In
+        </h1>
+        <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 32px 0" }}>
+          New to BoardyBoo?{" "}
+          <Link href="/signup" style={{ color: "#6366f1", fontWeight: 600, textDecoration: "none" }}>
+            Create an account
+          </Link>
+        </p>
 
-      <nav className="land-nav" style={{ position: "relative", borderBottom: "none" }}>
-        <div className="land-nav-inner" style={{ justifyContent: "center", paddingTop: "2rem" }}>
-          <div className="land-brand">
-            <div className="land-brand-icon"><IconPen /></div>
-            <span className="land-brand-name">BoardyBoo</span>
-          </div>
-        </div>
-      </nav>
-
-      <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 10, padding: "2rem" }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+        {/* Google */}
+        <button
+          onClick={handleGoogleLogin}
+          disabled={isLoggingIn}
           style={{
-            background: "rgba(30, 30, 30, 0.4)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: "24px",
-            padding: "3rem",
             width: "100%",
-            maxWidth: "440px",
-            textAlign: "center",
-            boxShadow: "0 24px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
+            height: "50px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            border: "1.5px solid #e2e8f0",
+            borderRadius: "12px",
+            background: "white",
+            cursor: isLoggingIn ? "not-allowed" : "pointer",
+            fontSize: "14px",
+            fontWeight: 600,
+            color: "#1a1a2e",
+            transition: "border-color 0.2s, box-shadow 0.2s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c7d2fe"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(99,102,241,0.08)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.boxShadow = "none"; }}
+        >
+          <IconGoogle />
+          Sign in with Google
+        </button>
+
+        {/* Divider */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            margin: "24px 0",
           }}
         >
-          <h1 style={{ fontSize: "2rem", fontWeight: 700, margin: "0 0 0.5rem 0", color: "#fff" }}>
-            Welcome back
-          </h1>
-          <p style={{ color: "var(--fg-dim)", marginBottom: "2.5rem", fontSize: "1.05rem", lineHeight: 1.5 }}>
-            Sign in to pick up right where you left off with your AI tutor.
-          </p>
+          <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
+          <span style={{ fontSize: "12px", fontWeight: 500, color: "#94a3b8", whiteSpace: "nowrap" }}>
+            Or continue with email
+          </span>
+          <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
+        </div>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              style={{
-                background: "rgba(239, 68, 68, 0.1)",
-                color: "#ff8a8a",
-                padding: "1rem",
-                borderRadius: "12px",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                marginBottom: "1.5rem",
-                fontSize: "0.95rem",
-              }}
-            >
-              {error}
-            </motion.div>
-          )}
-
-          <button
-            onClick={handleGoogleLogin}
-            disabled={isLoggingIn}
-            className="land-btn-outline"
+        {/* Error */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
             style={{
-              width: "100%",
-              height: "56px",
-              justifyContent: "center",
-              gap: "12px",
-              fontSize: "1.05rem",
-              background: "rgba(255,255,255,0.03)",
-              borderColor: "rgba(255,255,255,0.1)",
-              opacity: isLoggingIn ? 0.7 : 1,
-              cursor: isLoggingIn ? "not-allowed" : "pointer",
+              background: "#fef2f2",
+              color: "#dc2626",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              fontSize: "13px",
+              marginBottom: "16px",
+              border: "1px solid #fecaca",
             }}
           >
-            {isLoggingIn ? (
-              <span className="wb-dot yellow" style={{ marginRight: "8px" }} />
-            ) : (
-              <IconGoogle />
-            )}
-            {isLoggingIn ? "Signing in..." : "Continue with Google"}
-          </button>
+            {error}
+          </motion.div>
+        )}
+        {resetSent && (
+          <div style={{ background: "#f0fdf4", color: "#16a34a", padding: "10px 14px", borderRadius: "10px", fontSize: "13px", marginBottom: "16px", border: "1px solid #bbf7d0" }}>
+            Password reset email sent! Check your inbox.
+          </div>
+        )}
 
-          <p style={{ marginTop: "2rem", color: "var(--fg-dim)", fontSize: "0.9rem" }}>
-            Don't have an account? No problem! <br/> Just sign in with Google to create one.
-          </p>
-        </motion.div>
-      </main>
+        {/* Form */}
+        <form onSubmit={handleEmailLogin} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+          {/* Email */}
+          <div>
+            <label style={{ fontSize: "13px", fontWeight: 600, color: "#334155", marginBottom: "6px", display: "block" }}>
+              Email
+            </label>
+            <div style={{ position: "relative" }}>
+              <Mail size={16} color="#94a3b8" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                type="email"
+                placeholder="Enter your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "46px",
+                  padding: "0 14px 0 40px",
+                  border: "1.5px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  color: "#1a1a2e",
+                  background: "white",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#6366f1")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600, color: "#334155" }}>Password</label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#6366f1",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div style={{ position: "relative" }}>
+              <Lock size={16} color="#94a3b8" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "46px",
+                  padding: "0 42px 0 40px",
+                  border: "1.5px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  color: "#1a1a2e",
+                  background: "white",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#6366f1")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#94a3b8",
+                  display: "flex",
+                  padding: 0,
+                }}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isLoggingIn}
+            style={{
+              width: "100%",
+              height: "50px",
+              border: "none",
+              borderRadius: "12px",
+              background: "linear-gradient(135deg, #6366f1, #7c3aed)",
+              color: "white",
+              fontWeight: 700,
+              fontSize: "15px",
+              cursor: isLoggingIn ? "not-allowed" : "pointer",
+              opacity: isLoggingIn ? 0.7 : 1,
+              transition: "opacity 0.2s, transform 0.2s, box-shadow 0.2s",
+              boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
+              marginTop: "4px",
+            }}
+            onMouseEnter={(e) => { if (!isLoggingIn) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(99,102,241,0.4)"; }}}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(99,102,241,0.3)"; }}
+          >
+            {isLoggingIn ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <p style={{ textAlign: "center", fontSize: "12px", color: "#94a3b8", marginTop: "28px", lineHeight: 1.6 }}>
+          By clicking continue, you agree to our{" "}
+          <span style={{ textDecoration: "underline", cursor: "pointer" }}>Terms of Service</span>{" "}
+          and <span style={{ textDecoration: "underline", cursor: "pointer" }}>Privacy Policy</span>.
+        </p>
+      </motion.div>
     </div>
   );
 }

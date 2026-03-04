@@ -25,7 +25,7 @@ _AUDIO_MIME = "audio/pcm;rate=16000"
 logger = logging.getLogger(__name__)
 
 # Corner radius (px) applied to generated images
-_CORNER_RADIUS = 20
+_CORNER_RADIUS = 40
 
 
 def _round_corners(image_bytes: bytes, radius: int = _CORNER_RADIUS) -> bytes:

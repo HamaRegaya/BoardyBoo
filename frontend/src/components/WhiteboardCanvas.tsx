@@ -242,7 +242,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, Props>(
             })();
           }
         }
-
+        
         // ── Animated rendering path (smooth via requestAnimationFrame) ─
         if (cmd.animation && cmd.animation.length > 0) {
           const groups = cmd.animation;

@@ -173,8 +173,15 @@ This data feeds the student's dashboard — it powers "Suggested Topics" and
 # ── Builder ───────────────────────────────────────────────────────────────────
 
 
-def build_tutor_agent() -> Agent:
-    """Construct the complete agent tree with per-agent voice configs."""
+def build_tutor_agent(custom_instruction: str | None = None) -> Agent:
+    """Construct the complete agent tree with per-agent voice configs.
+
+    Parameters
+    ----------
+    custom_instruction : str | None
+        If provided, overrides the default TUTOR_INSTRUCTION with a
+        tutor-specific dynamic instruction built by prompt_builder.
+    """
 
     # Sub-agents; media is a direct tool on the tutor, not a sub-agent
     planner = build_planner_agent()
@@ -183,11 +190,13 @@ def build_tutor_agent() -> Agent:
     media_tools = MediaTools()
     generate_and_show_image = media_tools.generate_and_show_image
 
+    instruction = custom_instruction if custom_instruction else TUTOR_INSTRUCTION
+
     # Root agent — uses model string; speech_config is set via RunConfig
     root = Agent(
         name="tutor_agent",
         model=settings.tutor_agent_model,
-        instruction=TUTOR_INSTRUCTION,
+        instruction=instruction,
         tools=[
             *canvas_tools,
             get_progress,

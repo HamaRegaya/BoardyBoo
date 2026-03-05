@@ -103,6 +103,27 @@ async def list_tutors(user: dict = Depends(get_current_user)):
         return []
 
 
+# ── GET /api/tutors/{tutor_id} — get a single tutor ─────────────────────────
+
+
+@router.get("/{tutor_id}", response_model=Dict[str, Any])
+async def get_tutor(
+    tutor_id: str,
+    user: dict = Depends(get_current_user),
+):
+    uid = user["uid"]
+    ref = _tutors_ref(uid)
+    if not ref:
+        raise HTTPException(status_code=500, detail="Database not available")
+
+    doc_ref = ref.document(tutor_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Tutor not found")
+
+    return _serialize(doc)
+
+
 # ── POST /api/tutors — create a new tutor ────────────────────────────────────
 
 

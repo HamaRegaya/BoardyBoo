@@ -11,13 +11,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import TranscriptPanel from "@/components/TranscriptPanel";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAudio } from "@/hooks/useAudio";
 import { useAuth } from "@/components/AuthProvider";
 import type { WhiteboardCanvasRef } from "@/components/WhiteboardCanvas";
-import { WS_URL } from "@/lib/constants";
+import { WS_URL, API_URL } from "@/lib/constants";
 import { generateId, base64ToArrayBuffer } from "@/lib/utils";
 
 // Dynamic import — Excalidraw cannot be SSR'd
@@ -35,6 +36,11 @@ export default function Page() {
 
   const canvasRef = useRef<WhiteboardCanvasRef>(null);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Tutor personalisation — read from ?tutor=<id> query param
+  const searchParams = useSearchParams();
+  const tutorId = searchParams.get("tutor");
+  const [tutorConfig, setTutorConfig] = useState<Record<string, any> | null>(null);
 
   // Camera state
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -94,13 +100,30 @@ export default function Page() {
         console.error("Missing auth token, cannot connect.");
         return;
       }
-      
-      const url = `${WS_URL}/ws/${user.uid}/${sessionId}?token=${token}`;
+
+      // Fetch tutor config for local display if a tutor ID is present
+      if (tutorId && !tutorConfig) {
+        try {
+          const res = await fetch(`${API_URL}/api/tutors/${tutorId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            setTutorConfig(await res.json());
+          }
+        } catch (err) {
+          console.warn("Could not fetch tutor config for display:", err);
+        }
+      }
+
+      // Build WS URL — include tutor_id so backend builds a dynamic prompt
+      let url = `${WS_URL}/ws/${user.uid}/${sessionId}?token=${token}`;
+      if (tutorId) url += `&tutor_id=${tutorId}`;
+
       connect(url, {
         onAudio: (audioData: ArrayBuffer) => {
           playAudioChunk(audioData);
         },
-        onInterrupt: clearPlayback, // Flush the ring buffer when ADK signals an interrupt
+        onInterrupt: clearPlayback,
         onToolAudio: (base64Data: string) => {
           const pcm = base64ToArrayBuffer(base64Data);
           playAudioChunk(pcm);
@@ -110,7 +133,7 @@ export default function Page() {
     } catch (err) {
       console.error("Failed to acquire token or connect:", err);
     }
-  }, [connect, user, sessionId, getToken, initPlayer, playAudioChunk]);
+  }, [connect, user, sessionId, getToken, initPlayer, playAudioChunk, clearPlayback, tutorId, tutorConfig]);
 
   // ── Camera handlers ─────────────────────────────────────────────────────
 
@@ -267,6 +290,16 @@ export default function Page() {
               : "No Session"}
           </span>
         </div>
+
+        {/* Tutor identity badge */}
+        {tutorConfig && (
+          <div className="tutor-badge" title={tutorConfig.desc || tutorConfig.title}>
+            <span className="tutor-badge-name">{tutorConfig.name}</span>
+            {tutorConfig.subjects?.[0] && (
+              <span className="tutor-badge-subject">{tutorConfig.subjects[0]}</span>
+            )}
+          </div>
+        )}
 
         {!connected ? (
           <button

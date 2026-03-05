@@ -33,6 +33,7 @@ from google.genai import types
 from firebase_admin import auth as firebase_auth
 
 from app.agents.tutor_agent import build_tutor_agent
+from app.agents.prompt_builder import build_tutor_instruction
 from app.config import settings
 from app.routers import users, dashboard, schedule, tutors, calendar_router
 from app.utils.errors import (
@@ -156,6 +157,55 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
 
     logger.info("WS connected: user=%s session=%s", user_id, session_id)
 
+    # ── Per-tutor personalisation ─────────────────────────────────────────
+    # If ?tutor_id=xyz is provided, build a dedicated agent with a dynamic
+    # instruction tailored to the tutor's subject, personality, level, etc.
+    tutor_id = websocket.query_params.get("tutor_id")
+    tutor_voice: str = "Fenrir"  # default fallback
+    connection_runner = runner     # fallback to global runner
+
+    if tutor_id:
+        try:
+            from app.db import get_db as _get_tutor_db
+            _tutor_db = _get_tutor_db()
+            if _tutor_db:
+                _tutor_doc = (
+                    _tutor_db.collection("users")
+                    .document(user_id)
+                    .collection("tutors")
+                    .document(tutor_id)
+                    .get()
+                )
+                if _tutor_doc.exists:
+                    _tutor_config = _tutor_doc.to_dict()
+                    logger.info(
+                        "Tutor config loaded: name=%s subjects=%s personality=%s voice=%s",
+                        _tutor_config.get("name"),
+                        _tutor_config.get("subjects"),
+                        _tutor_config.get("personality"),
+                        _tutor_config.get("voice"),
+                    )
+                    # Build dynamic instruction from tutor config
+                    dynamic_instruction = build_tutor_instruction(_tutor_config)
+                    # Extract voice from tutor config
+                    tutor_voice = _tutor_config.get("voice") or "Fenrir"
+                    # Build a per-connection agent with the dynamic prompt
+                    custom_agent = build_tutor_agent(custom_instruction=dynamic_instruction)
+                    connection_runner = Runner(
+                        agent=custom_agent,
+                        app_name="magic-whiteboard-tutor",
+                        session_service=session_service,
+                    )
+                    logger.info(
+                        "Per-tutor agent built: tutor=%s voice=%s",
+                        _tutor_config.get("name"),
+                        tutor_voice,
+                    )
+                else:
+                    logger.warning("Tutor doc not found: %s/%s", user_id, tutor_id)
+        except Exception as _tutor_err:
+            logger.warning("Failed to load tutor config: %s", _tutor_err)
+
     # ── Persist session start to Firestore ────────────────────────────────
     session_start_time = datetime.now(timezone.utc)
     try:
@@ -175,6 +225,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                     "topic": "General Tutoring",
                     "subject": "",
                     "duration_minutes": 0,
+                    **({"tutor_id": tutor_id} if tutor_id else {}),
                 },
                 merge=True,
             )
@@ -233,7 +284,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                    voice_name="Fenrir",
+                    voice_name=tutor_voice,
                 )
             ),
         ),
@@ -423,7 +474,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
 
         for attempt in range(MAX_LIVE_RETRIES + 1):
             try:
-                async for event in runner.run_live(
+                async for event in connection_runner.run_live(
                     user_id=user_id,
                     session_id=current_session_id,
                     live_request_queue=live_request_queue,

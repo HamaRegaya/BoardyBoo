@@ -627,4 +627,37 @@
     .toolbar-mic-btn span {
         display: none;
     }
+
+    .tutor-badge-subject {
+        display: none;
+    }
+}
+
+/* ── Tutor identity badge ─────────────────────────────────────────────── */
+
+.tutor-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 10px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(99, 102, 241, 0.12));
+    border: 1px solid rgba(79, 70, 229, 0.18);
+}
+
+.tutor-badge-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary, #4f46e5);
+    white-space: nowrap;
+}
+
+.tutor-badge-subject {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+    background: rgba(255, 255, 255, 0.7);
+    padding: 1px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
 }

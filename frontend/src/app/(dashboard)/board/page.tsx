@@ -143,9 +143,8 @@ export default function Page() {
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       cameraStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      // Don't set srcObject here — the <video> element doesn't exist yet.
+      // The useEffect below will attach it after the element mounts.
       setIsCameraOpen(true);
     } catch (err) {
       console.error("Camera access denied:", err);
@@ -162,6 +161,15 @@ export default function Page() {
     }
     setIsCameraOpen(false);
   }, []);
+
+  // Attach the camera stream to the <video> element AFTER it mounts.
+  // This fixes the black-screen bug: the video element only exists when
+  // isCameraOpen is true, so we can't assign srcObject before that.
+  useEffect(() => {
+    if (isCameraOpen && videoRef.current && cameraStreamRef.current) {
+      videoRef.current.srcObject = cameraStreamRef.current;
+    }
+  }, [isCameraOpen]);
 
   const captureAndSend = useCallback(() => {
     const video = videoRef.current;

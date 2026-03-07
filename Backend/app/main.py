@@ -329,8 +329,33 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                             types.Content(role="user", parts=[types.Part(text=text)])
                         )
 
-                elif msg_type in ("image", "canvas"):
-                    # JPEG image or canvas snapshot
+                elif msg_type == "image":
+                    # Camera capture — send image as realtime blob (same
+                    # pipeline as canvas snapshots, handles large data
+                    # without crashing the Live API), then follow up with
+                    # a text prompt so the model actively reasons about it.
+                    image_data = base64.b64decode(json_msg["data"])
+                    mime_type = json_msg.get("mimeType", "image/jpeg")
+                    image_blob = types.Blob(
+                        mime_type=mime_type,
+                        data=image_data,
+                    )
+                    live_request_queue.send_realtime(image_blob)
+                    # Nudge the model to look at the image it just received
+                    live_request_queue.send_content(
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part(
+                                    text="I just showed you something from my camera. Please look at the image I'm showing you and tell me what you see. If it's homework or a problem, help me solve it.",
+                                ),
+                            ],
+                        )
+                    )
+                    logger.info("Camera image sent to agent (%d bytes, %s)", len(image_data), mime_type)
+
+                elif msg_type == "canvas":
+                    # Canvas auto-snapshot — passive realtime context
                     image_data = base64.b64decode(json_msg["data"])
                     mime_type = json_msg.get("mimeType", "image/jpeg")
                     image_blob = types.Blob(

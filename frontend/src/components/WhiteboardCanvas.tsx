@@ -273,7 +273,31 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
     // using requestAnimationFrame — lines grow progressively and text
     // fades in, creating an immersive "tutor is drawing" effect.
 
+    // ── Multi-track animation engine ─────────────────────────────────────
+    // Each animated canvas command becomes an independent "track".
+    // Multiple tracks play **concurrently** so consecutive commands
+    // (e.g. write_text → draw_diagram) all animate without cancelling
+    // each other.  A single requestAnimationFrame tick loop processes
+    // every active track each frame.
+
+    interface AnimTrack {
+      allConverted: any[];
+      groupMeta: {
+        start: number;
+        end: number;
+        delay: number;
+        drawDuration: number;
+        duration?: number;
+        elements: any[];
+      }[];
+      fullData: Map<string, { points?: number[][]; opacity: number; fullText?: string }>;
+      startTs: number;
+      elementIds: Set<string>;
+    }
+
     const animFrameRef = useRef<number>(0);
+    const animTracksRef = useRef<AnimTrack[]>([]);
+    const animFrameCountRef = useRef<number>(0);
 
     useEffect(() => {
       const api = apiRef.current;
@@ -286,6 +310,151 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
         return;
       }
 
+      // Cancel running tick — will be restarted at the end if tracks exist.
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = 0;
+      }
+
+      // ── Shared tick function — processes ALL active animation tracks ──
+      const tick = (now: number) => {
+        const tracks = animTracksRef.current;
+        if (tracks.length === 0) {
+          animFrameRef.current = 0;
+          return;
+        }
+
+        animFrameCountRef.current++;
+        const frame = animFrameCountRef.current;
+        const allAnimated: any[] = [];
+        const completedIndices: number[] = [];
+
+        for (let ti = 0; ti < tracks.length; ti++) {
+          const track = tracks[ti];
+          let trackDone = true;
+
+          for (const gm of track.groupMeta) {
+            const elapsed = now - track.startTs;
+            if (elapsed < gm.delay) {
+              trackDone = false;
+              continue; // group hasn't started yet
+            }
+
+            const rawT = Math.min(
+              (elapsed - gm.delay) / gm.drawDuration,
+              1.0
+            );
+            // Ease-out cubic for a natural deceleration feel
+            const t = 1 - Math.pow(1 - rawT, 3);
+
+            for (const el of gm.elements) {
+              const fd = track.fullData.get(el.id);
+              if (!fd) continue;
+
+              if (
+                (el.type === "line" || el.type === "arrow") &&
+                fd.points &&
+                fd.points.length >= 2
+              ) {
+                // ── Smooth line growth ──
+                const pts = fd.points;
+                let partial: number[][];
+
+                if (pts.length === 2) {
+                  const [sx, sy] = pts[0];
+                  const [ex, ey] = pts[1];
+                  partial = [
+                    [sx, sy],
+                    [sx + (ex - sx) * t, sy + (ey - sy) * t],
+                  ];
+                } else {
+                  const segs = pts.length - 1;
+                  const pos = t * segs;
+                  const idx = Math.floor(pos);
+                  const frac = pos - idx;
+
+                  partial = pts.slice(0, idx + 1);
+                  if (frac > 0 && idx + 1 < pts.length) {
+                    const a = pts[idx];
+                    const b = pts[idx + 1];
+                    partial.push([
+                      a[0] + (b[0] - a[0]) * frac,
+                      a[1] + (b[1] - a[1]) * frac,
+                    ]);
+                  }
+                }
+
+                const tip = partial[partial.length - 1] ?? [0, 0];
+                allAnimated.push({
+                  ...el,
+                  points: partial,
+                  width: tip[0],
+                  height: tip[1],
+                  version: (el.version ?? 1) + frame,
+                  versionNonce: Math.floor(Math.random() * 1e9),
+                });
+              } else if (el.type === "text" && fd.fullText) {
+                // ── Text element → typewriter reveal ──
+                const full = fd.fullText;
+                const charCount = Math.max(1, Math.ceil(full.length * t));
+                const revealed = full.slice(0, charCount);
+                allAnimated.push({
+                  ...el,
+                  text: revealed,
+                  opacity: fd.opacity,
+                  autoResize: true,
+                  version: (el.version ?? 1) + frame,
+                  versionNonce: Math.floor(Math.random() * 1e9),
+                });
+              } else {
+                // ── Non-line, non-text element → opacity fade-in ──
+                allAnimated.push({
+                  ...el,
+                  opacity: Math.round(fd.opacity * t),
+                  version: (el.version ?? 1) + frame,
+                  versionNonce: Math.floor(Math.random() * 1e9),
+                });
+              }
+            }
+
+            if (rawT < 1.0) trackDone = false;
+          }
+
+          if (trackDone) completedIndices.push(ti);
+        }
+
+        // Base = current scene elements that are NOT owned by any track
+        const allAnimIds = new Set<string>();
+        for (const track of tracks) {
+          for (const id of track.elementIds) allAnimIds.add(id);
+        }
+        const baseElements = api
+          .getSceneElements()
+          .filter((el: any) => !allAnimIds.has(el.id));
+
+        api.updateScene({ elements: [...baseElements, ...allAnimated] });
+
+        // Remove completed tracks — their final-state elements are in
+        // allAnimated this frame; next frame they'll be part of baseElements.
+        if (completedIndices.length > 0) {
+          const removed = new Set(completedIndices);
+          animTracksRef.current = tracks.filter((_, i) => !removed.has(i));
+          console.log(
+            `[Canvas Anim] ${completedIndices.length} track(s) complete, ` +
+              `${animTracksRef.current.length} remaining, ` +
+              `total elements: ${api.getSceneElements().length}`
+          );
+        }
+
+        if (animTracksRef.current.length > 0) {
+          animFrameRef.current = requestAnimationFrame(tick);
+        } else {
+          animFrameRef.current = 0;
+          console.log("[Canvas Anim] All animation tracks finished");
+        }
+      };
+
+      // ── Process new commands ───────────────────────────────────────────
       for (let i = lastAppliedRef.current; i < canvasCommands.length; i++) {
         const cmd = canvasCommands[i];
         console.log(
@@ -293,6 +462,8 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
         );
 
         if (cmd.action === "clear") {
+          // Clear everything including active animations
+          animTracksRef.current = [];
           api.updateScene({ elements: [] });
           continue;
         }
@@ -306,7 +477,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
             created: f.created || Date.now(),
           }));
 
-          // Apply rounded corners (async) then register with Excalidraw
           if (rawEntries.length > 0) {
             (async () => {
               const fileEntries = await Promise.all(
@@ -324,35 +494,51 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
             })();
           }
         }
-        
-        // ── Animated rendering path (smooth via requestAnimationFrame) ─
+
+        // ── Animated rendering path ──────────────────────────────────
+        // Create a new animation track — runs concurrently with any
+        // existing tracks (no finalization / cancellation).
         if (cmd.animation && cmd.animation.length > 0) {
           const groups = cmd.animation;
-          const allConverted = cmd.action === "add"
-            ? shiftElementsBelowContent(api, toExcalidrawElements(cmd.elements))
-            : toExcalidrawElements(cmd.elements);
-          const baseElements = [...api.getSceneElements()];
+          const allConverted =
+            cmd.action === "add"
+              ? shiftElementsBelowContent(api, toExcalidrawElements(cmd.elements))
+              : toExcalidrawElements(cmd.elements);
 
-          // Scroll to frame the full plot area before drawing starts
+          // Scroll to show the incoming content
           try {
-            api.scrollToContent(allConverted, { fitToContent: true, animate: true, duration: 300 });
-          } catch { /* ignore */ }
+            api.scrollToContent(allConverted, {
+              fitToContent: true,
+              animate: true,
+              duration: 300,
+            });
+          } catch {
+            /* ignore */
+          }
 
-          // Pre-compute per-group draw duration from delay gaps
-          const groupMeta = groups.map((g, idx) => {
-            const nextDelay =
-              idx < groups.length - 1 ? groups[idx + 1].delay : g.delay + 400;
+          // Pre-compute per-group draw duration
+          const groupMeta = groups.map((g: any, idx: number) => {
+            let drawDuration: number;
+            if (typeof g.duration === "number" && g.duration > 0) {
+              drawDuration = g.duration;
+            } else {
+              const nextDelay =
+                idx < groups.length - 1
+                  ? groups[idx + 1].delay
+                  : g.delay + 400;
+              drawDuration = Math.max(nextDelay - g.delay, 120);
+            }
             return {
               ...g,
-              drawDuration: Math.max(nextDelay - g.delay, 120),
+              drawDuration,
               elements: allConverted.slice(g.start, g.end),
             };
           });
 
-          // Cache each element's full data for interpolation
+          // Cache full data for interpolation
           const fullData = new Map<
             string,
-            { points?: number[][]; opacity: number }
+            { points?: number[][]; opacity: number; fullText?: string }
           >();
           for (const gm of groupMeta) {
             for (const el of gm.elements) {
@@ -361,130 +547,38 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
                   ? el.points.map((p: number[]) => [...p])
                   : undefined,
                 opacity: el.opacity ?? 100,
+                fullText:
+                  el.type === "text" && el.text
+                    ? String(el.text)
+                    : undefined,
               });
             }
           }
 
-          const startTs = performance.now();
-          let frame = 0;
-
-          const tick = (now: number) => {
-            const elapsed = now - startTs;
-            const animated: any[] = [];
-            let allDone = true;
-            frame++;
-
-            for (const gm of groupMeta) {
-              if (elapsed < gm.delay) {
-                allDone = false;
-                continue; // group hasn't started yet
-              }
-
-              const rawT = Math.min(
-                (elapsed - gm.delay) / gm.drawDuration,
-                1.0
-              );
-              // Ease-out cubic for a natural deceleration feel
-              const t = 1 - Math.pow(1 - rawT, 3);
-
-              for (const el of gm.elements) {
-                const fd = fullData.get(el.id)!;
-
-                if (
-                  (el.type === "line" || el.type === "arrow") &&
-                  fd.points &&
-                  fd.points.length >= 2
-                ) {
-                  // ── Smooth line growth ──
-                  const pts = fd.points;
-                  let partial: number[][];
-
-                  if (pts.length === 2) {
-                    // Two-point line → interpolate endpoint
-                    const [sx, sy] = pts[0];
-                    const [ex, ey] = pts[1];
-                    partial = [
-                      [sx, sy],
-                      [sx + (ex - sx) * t, sy + (ey - sy) * t],
-                    ];
-                  } else {
-                    // Multi-point polyline → reveal + interpolate tip
-                    const segs = pts.length - 1;
-                    const pos = t * segs;
-                    const idx = Math.floor(pos);
-                    const frac = pos - idx;
-
-                    partial = pts.slice(0, idx + 1);
-                    if (frac > 0 && idx + 1 < pts.length) {
-                      const a = pts[idx];
-                      const b = pts[idx + 1];
-                      partial.push([
-                        a[0] + (b[0] - a[0]) * frac,
-                        a[1] + (b[1] - a[1]) * frac,
-                      ]);
-                    }
-                  }
-
-                  const tip = partial[partial.length - 1] ?? [0, 0];
-                  animated.push({
-                    ...el,
-                    points: partial,
-                    width: tip[0],
-                    height: tip[1],
-                    version: (el.version ?? 1) + frame,
-                    versionNonce: Math.floor(Math.random() * 1e9),
-                  });
-                } else {
-                  // ── Non-line element → opacity fade-in ──
-                  animated.push({
-                    ...el,
-                    opacity: Math.round(fd.opacity * t),
-                    version: (el.version ?? 1) + frame,
-                    versionNonce: Math.floor(Math.random() * 1e9),
-                  });
-                }
-              }
-
-              if (rawT < 1.0) allDone = false;
-            }
-
-            api.updateScene({ elements: [...baseElements, ...animated] });
-
-            if (!allDone) {
-              animFrameRef.current = requestAnimationFrame(tick);
-            } else {
-              // Ensure pixel-perfect final state
-              const finalEls = allConverted.map((el: any) => ({
-                ...el,
-                version: (el.version ?? 1) + frame + 1,
-                versionNonce: Math.floor(Math.random() * 1e9),
-              }));
-              api.updateScene({
-                elements: [...baseElements, ...finalEls],
-              });
-              console.log(
-                `[Canvas Anim] Complete in ${Math.round(elapsed)}ms, total elements: ${api.getSceneElements().length}`
-              );
-            }
+          const track: AnimTrack = {
+            allConverted,
+            groupMeta,
+            fullData,
+            startTs: performance.now(),
+            elementIds: new Set(allConverted.map((el: any) => el.id as string)),
           };
-
-          animFrameRef.current = requestAnimationFrame(tick);
+          animTracksRef.current = [...animTracksRef.current, track];
           console.log(
-            `[Canvas] Started smooth animation: ${groupMeta.length} groups, ~${
-              groups[groups.length - 1]?.delay + 400
-            }ms`
+            `[Canvas] New animation track: ${groupMeta.length} groups, ` +
+              `${allConverted.length} elements (total tracks: ${animTracksRef.current.length})`
           );
           continue; // skip non-animated path
         }
 
         // ── Standard (non-animated) rendering path ───────────────────
         const rawElements = toExcalidrawElements(cmd.elements);
-        // For "add" actions, shift new content below existing student drawings
-        const newElements = cmd.action === "add"
-          ? shiftElementsBelowContent(api, rawElements)
-          : rawElements;
+        const newElements =
+          cmd.action === "add"
+            ? shiftElementsBelowContent(api, rawElements)
+            : rawElements;
 
         if (cmd.action === "replace") {
+          animTracksRef.current = []; // clear animations on replace
           api.updateScene({ elements: newElements });
         } else {
           const existing = api.getSceneElements();
@@ -493,9 +587,12 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
           });
         }
 
-        // Auto-scroll to show the newly added content
         try {
-          api.scrollToContent(newElements, { fitToContent: true, animate: true, duration: 300 });
+          api.scrollToContent(newElements, {
+            fitToContent: true,
+            animate: true,
+            duration: 300,
+          });
         } catch {
           // scrollToContent may fail if elements are empty
         }
@@ -506,7 +603,12 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasRef, WhiteboardCanvasProps>(
       }
       lastAppliedRef.current = canvasCommands.length;
 
-      // Cleanup animation frame on unmount or dependency change
+      // (Re-)start the tick loop if there are active animation tracks
+      if (animTracksRef.current.length > 0 && !animFrameRef.current) {
+        animFrameRef.current = requestAnimationFrame(tick);
+      }
+
+      // Cleanup on unmount or dependency change
       return () => {
         if (animFrameRef.current) {
           cancelAnimationFrame(animFrameRef.current);

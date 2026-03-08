@@ -313,7 +313,14 @@ def draw_on_canvas(
 
     elems = elements if action != "clear" else []
     logger.info("draw_on_canvas: action=%s elements=%d", action, len(elems))
-    return _defer_elements("draw_on_canvas", action, elems)
+
+    # Animate each element individually so shapes cascade onto the board.
+    animation = None
+    if action == "add" and len(elems) > 0:
+        animation = []
+        for idx in range(len(elems)):
+            animation.append({"start": idx, "end": idx + 1, "delay": idx * 200})
+    return _defer_elements("draw_on_canvas", action, elems, animation=animation)
 
 
 def write_text_on_canvas(
@@ -348,26 +355,57 @@ def write_text_on_canvas(
     if y < 0:
         y = _cursor_y
 
-    # Estimate height of this text block
-    lines = text.splitlines() or [text]
-    text_h = len(lines) * font_size * _LINE_HEIGHT_RATIO
+    # Split into individual lines so each gets its own element + animation.
+    raw_lines = text.splitlines() or [text]
+    # Remove completely empty lines but keep whitespace-only lines as spacing
+    lines = [ln for ln in raw_lines if ln.strip()] if len(raw_lines) > 1 else raw_lines
 
-    element = {
-        "type": "text",
-        "x": x,
-        "y": y,
-        "text": text,
-        "fontSize": font_size,
-        "strokeColor": color,
-        "fontFamily": 1,          # Virgil (hand-drawn)
-        # width/height omitted — Excalidraw auto-sizes text using real font metrics
-    }
+    line_height = font_size * _LINE_HEIGHT_RATIO
+    elements: List[Dict[str, Any]] = []
+    animation: List[Dict[str, Any]] = []
 
-    # Advance cursor past this block
-    _cursor_y = y + text_h + _TEXT_SPACING
+    # Delay (ms) between successive lines appearing
+    _LINE_DELAY = 250
+    # Per-character typing speed within a single line
+    _CHAR_MS = 30
 
-    logger.info("write_text_on_canvas at (%.0f, %.0f): %s", x, y, text[:60])
-    return _defer_elements("write_text_on_canvas", "add", [element])
+    for i, line in enumerate(lines):
+        line_y = y + i * line_height
+        elements.append({
+            "type": "text",
+            "x": x,
+            "y": line_y,
+            "text": line,
+            "fontSize": font_size,
+            "strokeColor": color,
+            "fontFamily": 1,
+        })
+        # Each line is its own animation group — typewriter per line
+        char_count = len(line)
+        type_duration = max(200, min(char_count * _CHAR_MS, 2000))
+        # Lines cascade: each waits for the previous line to finish typing
+        if i == 0:
+            delay = 0
+        else:
+            # Previous line's delay + its duration → this line starts right after
+            prev = animation[i - 1]
+            delay = prev["delay"] + prev["duration"]
+        animation.append({
+            "start": i,
+            "end": i + 1,
+            "delay": delay,
+            "duration": type_duration,
+        })
+
+    # Advance cursor past all lines
+    total_h = len(lines) * line_height
+    _cursor_y = y + total_h + _TEXT_SPACING
+
+    logger.info(
+        "write_text_on_canvas at (%.0f, %.0f): %d lines, %s",
+        x, y, len(lines), text[:60],
+    )
+    return _defer_elements("write_text_on_canvas", "add", elements, animation=animation)
 
 
 def draw_diagram(
@@ -395,6 +433,15 @@ def draw_diagram(
     """
     items = items or []
     elements: List[Dict[str, Any]] = []
+    # Animation groups — each entry records (start_idx, end_idx_exclusive)
+    # for a logical chunk of elements that should appear together.
+    # Delays are computed after the element list is complete.
+    _anim_groups: List[tuple] = []  # [(start, end), ...]
+
+    # Per-step delay (ms) for the cascading animation.
+    _STEP_DELAY = 350            # delay between successive diagram steps
+    _TITLE_DELAY = 0             # title appears immediately
+    _FIRST_ITEM_DELAY = 250      # small pause between title and first item
 
     # Normalise math symbols in title and all items
     title = _normalize_math_text(title)
@@ -402,6 +449,7 @@ def draw_diagram(
 
     # Title element
     if title:
+        _title_start = len(elements)
         elements.append({
             "type": "text",
             "x": x,
@@ -411,6 +459,7 @@ def draw_diagram(
             "strokeColor": "#1864ab",
             "fontFamily": 1,
         })
+        _anim_groups.append((_title_start, len(elements)))
 
     # Generate elements based on diagram type
     if diagram_type == "flowchart":
@@ -421,6 +470,7 @@ def draw_diagram(
         row_gap = 100  # vertical distance between box tops
 
         for i, item in enumerate(items):
+            step_start = len(elements)
             box_y = y + 60 + i * row_gap
             item_w, _ = _box_size(item, fc_font)
             bw = max(item_w, max_box_w)  # uniform width across all steps
@@ -456,6 +506,8 @@ def draw_diagram(
                     "height": row_gap - box_h,
                     "strokeColor": "#1864ab",
                 })
+            # One animation group per flowchart step (box + label + arrow)
+            _anim_groups.append((step_start, len(elements)))
 
     elif diagram_type == "mindmap":
         import math
@@ -466,6 +518,7 @@ def draw_diagram(
         centre_h = max(mm_font * _LINE_HEIGHT_RATIO + _V_PAD * 2, 60)
         cx_centre = x + 50 + centre_w / 2
         cy_centre = y + 90 + centre_h / 2
+        _centre_start = len(elements)
         elements.append({
             "type": "ellipse",
             "x": x + 50,
@@ -476,7 +529,10 @@ def draw_diagram(
             "backgroundColor": "#fff3bf",
             "fillStyle": "solid",
         })
+        _anim_groups.append((_centre_start, len(elements)))
+
         for i, item in enumerate(items):
+            branch_start = len(elements)
             angle = (2 * math.pi * i) / max(len(items), 1)
             bw, bh = _box_size(item, mm_font)
             # Radiate branches further out when items are wider
@@ -505,9 +561,11 @@ def draw_diagram(
                 "width": bw - _H_PAD * 2,
                 "height": th,
             })
+            _anim_groups.append((branch_start, len(elements)))
 
     elif diagram_type == "list":
         for i, item in enumerate(items):
+            _item_start = len(elements)
             elements.append({
                 "type": "text",
                 "x": x + 10,
@@ -516,6 +574,7 @@ def draw_diagram(
                 "fontSize": 20,
                 "strokeColor": "#1e1e1e",
             })
+            _anim_groups.append((_item_start, len(elements)))
 
     else:
         # Generic: render items as text list inside a border rectangle.
@@ -528,6 +587,7 @@ def draw_diagram(
         box_w = inner_w + _H_PAD * 2 + 20
         row_px = gen_font * _LINE_HEIGHT_RATIO + 6
         box_h = 60 + len(items) * row_px + 20
+        _border_start = len(elements)
         elements.append({
             "type": "rectangle",
             "x": x - 10,
@@ -536,7 +596,10 @@ def draw_diagram(
             "height": box_h,
             "strokeColor": "#868e96",
         })
+        _anim_groups.append((_border_start, len(elements)))
+
         for i, item in enumerate(items):
+            _row_start = len(elements)
             _, th = _box_size(item, gen_font, min_width=0, min_height=0)
             elements.append({
                 "type": "text",
@@ -549,12 +612,27 @@ def draw_diagram(
                 "width": box_w - _H_PAD * 2 - 20,
                 "height": th,
             })
+            _anim_groups.append((_row_start, len(elements)))
+
+    # ── Build animation metadata ──────────────────────────────────────────
+    # Each animation group gets a staggered delay so elements cascade
+    # top-to-bottom (or centre-out for mindmaps).
+    animation: List[Dict[str, Any]] | None = None
+    if len(_anim_groups) > 1:
+        animation = []
+        for idx, (start, end) in enumerate(_anim_groups):
+            if idx == 0:
+                delay = _TITLE_DELAY
+            else:
+                delay = _FIRST_ITEM_DELAY + (idx - 1) * _STEP_DELAY
+            animation.append({"start": start, "end": end, "delay": delay})
 
     logger.info(
-        "draw_diagram: type=%s title=%s items=%d elements=%d",
+        "draw_diagram: type=%s title=%s items=%d elements=%d anim_groups=%d",
         diagram_type, title, len(items), len(elements),
+        len(_anim_groups),
     )
-    return _defer_elements("draw_diagram", "add", elements)
+    return _defer_elements("draw_diagram", "add", elements, animation=animation)
 
 
 def highlight_area(
@@ -587,7 +665,9 @@ def highlight_area(
         "fillStyle": "solid",
         "opacity": 40,
     }
-    return _defer_elements("highlight_area", "add", [element])
+    # Single-group animation: highlight fades in gently.
+    animation = [{"start": 0, "end": 1, "delay": 0}]
+    return _defer_elements("highlight_area", "add", [element], animation=animation)
 
 
 

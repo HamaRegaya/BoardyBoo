@@ -8,10 +8,14 @@ from typing import Any, Dict, List, Optional
 from PIL import Image, ImageDraw
 from google import genai
 from google.genai import types
+import os
 
 from app.tools.canvas_tools import add_image_to_canvas
 import app.tools.canvas_tools as _ct
 from app.utils.ws_signals import ws_notify
+
+from dotenv import load_dotenv
+load_dotenv()
 
 # Gap between the last written content and the top of a generated image
 _IMAGE_Y_GAP = 30.0
@@ -53,7 +57,7 @@ class MediaTools:
         self.client = genai.Client(
             api_key=os.environ.get("GEMINI_API_KEY"),
         )
-        self.model = "gemini-3-pro-image-preview"
+        self.model = os.environ.get("IMAGE_GENRATION_MODEL", "gemini-3-pro-image-preview")
 
     async def generate_image(self, prompt: str) -> str:
         contents = [

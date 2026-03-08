@@ -429,6 +429,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     # Track tool names already early-pushed so we skip the duplicate
     # re-injection when the normal functionResponse arrives from ADK.
     _early_pushed: set[str] = set()
+    # Cursor snapshot after early push — used to undo the second cursor
+    # advance that happens when ADK re-executes the same tool internally.
+    _early_cursor_snapshot: dict[str, float] = {}
 
     async def _try_early_canvas_push(
         ws: WebSocket, tool_name: str, args: dict | None,
@@ -448,6 +451,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                 return
 
             result = fn(**args)  # returns a slim dict with deferred_canvas_id
+
+            # Snapshot the cursor AFTER the early-push call so we can
+            # restore it when the ADK re-executes the same tool (which
+            # would advance the cursor a second time otherwise).
+            _early_cursor_snapshot[tool_name] = _ct._cursor_y
 
             # If it produced bridge data, pop and forward immediately
             if isinstance(result, dict) and "deferred_canvas_id" in result:
@@ -603,6 +611,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                                             from app.tools.canvas_tools import canvas_bridge
                                             canvas_bridge.pop(c_id, None)
                                             _early_pushed.discard(tool_of_resp)
+                                            # Restore the cursor position to undo the
+                                            # double-advance caused by ADK re-executing
+                                            # the same tool internally.
+                                            if tool_of_resp in _early_cursor_snapshot:
+                                                import app.tools.canvas_tools as _ct_mod
+                                                _ct_mod._cursor_y = _early_cursor_snapshot.pop(tool_of_resp)
                                             logger.info(
                                                 "Skipped duplicate re-injection for %s (early-pushed)",
                                                 tool_of_resp,

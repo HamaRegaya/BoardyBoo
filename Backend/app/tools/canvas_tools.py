@@ -313,7 +313,14 @@ def draw_on_canvas(
 
     elems = elements if action != "clear" else []
     logger.info("draw_on_canvas: action=%s elements=%d", action, len(elems))
-    return _defer_elements("draw_on_canvas", action, elems)
+
+    # Animate each element individually so shapes cascade onto the board.
+    animation = None
+    if action == "add" and len(elems) > 0:
+        animation = []
+        for idx in range(len(elems)):
+            animation.append({"start": idx, "end": idx + 1, "delay": idx * 200})
+    return _defer_elements("draw_on_canvas", action, elems, animation=animation)
 
 
 def write_text_on_canvas(
@@ -348,26 +355,57 @@ def write_text_on_canvas(
     if y < 0:
         y = _cursor_y
 
-    # Estimate height of this text block
-    lines = text.splitlines() or [text]
-    text_h = len(lines) * font_size * _LINE_HEIGHT_RATIO
+    # Split into individual lines so each gets its own element + animation.
+    raw_lines = text.splitlines() or [text]
+    # Remove completely empty lines but keep whitespace-only lines as spacing
+    lines = [ln for ln in raw_lines if ln.strip()] if len(raw_lines) > 1 else raw_lines
 
-    element = {
-        "type": "text",
-        "x": x,
-        "y": y,
-        "text": text,
-        "fontSize": font_size,
-        "strokeColor": color,
-        "fontFamily": 1,          # Virgil (hand-drawn)
-        # width/height omitted — Excalidraw auto-sizes text using real font metrics
-    }
+    line_height = font_size * _LINE_HEIGHT_RATIO
+    elements: List[Dict[str, Any]] = []
+    animation: List[Dict[str, Any]] = []
 
-    # Advance cursor past this block
-    _cursor_y = y + text_h + _TEXT_SPACING
+    # Delay (ms) between successive lines appearing
+    _LINE_DELAY = 250
+    # Per-character typing speed within a single line
+    _CHAR_MS = 30
 
-    logger.info("write_text_on_canvas at (%.0f, %.0f): %s", x, y, text[:60])
-    return _defer_elements("write_text_on_canvas", "add", [element])
+    for i, line in enumerate(lines):
+        line_y = y + i * line_height
+        elements.append({
+            "type": "text",
+            "x": x,
+            "y": line_y,
+            "text": line,
+            "fontSize": font_size,
+            "strokeColor": color,
+            "fontFamily": 1,
+        })
+        # Each line is its own animation group — typewriter per line
+        char_count = len(line)
+        type_duration = max(200, min(char_count * _CHAR_MS, 2000))
+        # Lines cascade: each waits for the previous line to finish typing
+        if i == 0:
+            delay = 0
+        else:
+            # Previous line's delay + its duration → this line starts right after
+            prev = animation[i - 1]
+            delay = prev["delay"] + prev["duration"]
+        animation.append({
+            "start": i,
+            "end": i + 1,
+            "delay": delay,
+            "duration": type_duration,
+        })
+
+    # Advance cursor past all lines
+    total_h = len(lines) * line_height
+    _cursor_y = y + total_h + _TEXT_SPACING
+
+    logger.info(
+        "write_text_on_canvas at (%.0f, %.0f): %d lines, %s",
+        x, y, len(lines), text[:60],
+    )
+    return _defer_elements("write_text_on_canvas", "add", elements, animation=animation)
 
 
 def draw_diagram(
@@ -627,7 +665,9 @@ def highlight_area(
         "fillStyle": "solid",
         "opacity": 40,
     }
-    return _defer_elements("highlight_area", "add", [element])
+    # Single-group animation: highlight fades in gently.
+    animation = [{"start": 0, "end": 1, "delay": 0}]
+    return _defer_elements("highlight_area", "add", [element], animation=animation)
 
 
 

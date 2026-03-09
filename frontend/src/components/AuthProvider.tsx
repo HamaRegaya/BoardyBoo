@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 import {User, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
+import { API_URL } from "@/lib/constants";
 import axios from "axios";
 
 interface AuthContextType {
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const token = await currentUser.getIdToken();
           const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
           await axios.post(
-            "http://localhost:8000/api/users/sync",
+            `${API_URL}/api/users/sync`,
             { timezone: tz },
             {
               headers: {
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const idToken = await result.user.getIdToken();
           const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
           await axios.post(
-            "http://localhost:8000/api/users/sync",
+            `${API_URL}/api/users/sync`,
             { google_access_token: googleAccessToken, timezone: tz },
             { headers: { Authorization: `Bearer ${idToken}` } }
           );

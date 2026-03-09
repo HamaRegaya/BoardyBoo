@@ -13,5 +13,5 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Firebase service account keys
-*-firebase-adminsdk-*.json
+# Firebase service account keys (kept in repo for private repos)
+# *-firebase-adminsdk-*.json

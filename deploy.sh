@@ -48,7 +48,7 @@ gcloud services enable \
 echo ""
 echo "━━━ Building & deploying backend ━━━"
 gcloud run deploy "$BACKEND_SERVICE" \
-  --source ./backend \
+  --source ./Backend \
   --project "$PROJECT_ID" \
   --region "$REGION" \
   --platform managed \
@@ -59,7 +59,7 @@ gcloud run deploy "$BACKEND_SERVICE" \
   --session-affinity \
   --min-instances 0 \
   --max-instances 10 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION" \
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,FIREBASE_SERVICE_ACCOUNT_PATH=/app/boardyboo-d6d82-firebase-adminsdk-fbsvc-c0cbac08cd.json,FIREBASE_PROJECT_ID=boardyboo-d6d82" \
   --quiet
 
 BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE" \

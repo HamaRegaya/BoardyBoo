@@ -3,6 +3,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import logging
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Try to get the path to the service account JSON file from the environment
@@ -18,14 +20,12 @@ def initialize_firebase():
                 firebase_admin.initialize_app(cred)
             else:
                 logger.warning("Initializing Firebase with default (Application Default Credentials).")
-                # When deployed to Google Cloud, this will use the service account of the resource
-                # Locally, it will use the user's gcloud auth application-default login, or fail
-                # if not authenticated and no service account path is provided.
+                options = {}
+                if settings.firebase_project_id:
+                    options["projectId"] = settings.firebase_project_id
                 try:
-                    firebase_admin.initialize_app()
+                    firebase_admin.initialize_app(options=options if options else None)
                 except ValueError as e:
-                    # In case of missing credentials during development, we log a critical error
-                    # but don't strictly crash the app immediately (so other routes might still work for testing)
                     logger.error("Failed to initialize Firebase Admin SDK. Did you set FIREBASE_SERVICE_ACCOUNT_PATH? Error: %s", e)
         except Exception as e:
             logger.error("Error initializing Firebase: %s", e)

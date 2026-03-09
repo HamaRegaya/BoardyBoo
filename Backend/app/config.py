@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     google_oauth_client_id: str = ""
     google_oauth_client_secret: str = ""
 
+    # ── Firebase ───────────────────────────────────────────────────────────
+    firebase_project_id: str = ""
+
     # ── Firestore ──────────────────────────────────────────────────────────
     firestore_database: str = "(default)"
 

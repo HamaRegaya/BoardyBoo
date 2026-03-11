@@ -1,0 +1,28 @@
+# ── BoardyBoo Environment Variables Template ──────────────────────────────────
+# Copy this file to all_env.yaml and fill in your actual values.
+# all_env.yaml is git-ignored and must NEVER be committed.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Google / Vertex AI
+GOOGLE_GENAI_USE_VERTEXAI: 'FALSE'          # Set to 'TRUE' to use Vertex AI instead of Gemini API
+GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY'
+GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY'       # Usually same as GOOGLE_API_KEY
+GOOGLE_CLOUD_PROJECT: 'YOUR_GCP_PROJECT_ID'
+GOOGLE_CLOUD_LOCATION: 'us-central1'
+
+# Agent model selection
+TUTOR_AGENT_MODEL: 'gemini-2.5-flash-native-audio-preview-12-2025'
+PLANNER_AGENT_MODEL: 'gemini-2.5-flash-native-audio-preview-12-2025'
+CANVAS_AGENT_MODEL: 'gemini-2.5-flash-native-audio-preview-12-2025'
+CALENDAR_AGENT_MODEL: 'gemini-2.5-flash-native-audio-preview-12-2025'
+MEDIA_AGENT_MODEL: 'gemini-2.5-flash-native-audio-preview-12-2025'
+PROGRESS_AGENT_MODEL: 'gemini-2.5-flash-native-audio-preview-12-2025'
+IMAGE_GENRATION_MODEL: 'gemini-2.5-flash-image'
+
+# Services
+GENMEDIA_MCP_SERVER_URL: 'http://localhost:8081'
+FIRESTORE_DATABASE: '(default)'
+LOG_LEVEL: 'info'                           # debug | info | warning | error
+
+# CORS — comma-separated list of allowed origins
+CORS_ORIGINS: '["https://YOUR_FRONTEND_URL","http://localhost:3000"]'

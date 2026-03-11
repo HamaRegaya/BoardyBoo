@@ -1,0 +1,12 @@
+allContacts:
+  email: hachichamohamed2001@gmail.com
+  phoneNumber: '+216 26 702 119'
+  postalAddress:
+    regionCode: TN
+    postalCode: '3000'
+    administrativeArea: SFAX
+    locality: sfax
+    addressLines:
+      - 'rue el ain'
+    recipients:
+      - 'Mohamed Hachicha'

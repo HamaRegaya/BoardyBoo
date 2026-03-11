@@ -48,7 +48,7 @@ gcloud services enable \
 echo ""
 echo "━━━ Building & deploying backend ━━━"
 gcloud run deploy "$BACKEND_SERVICE" \
-  --source ./backend \
+  --source ./Backend \
   --project "$PROJECT_ID" \
   --region "$REGION" \
   --platform managed \
@@ -59,7 +59,7 @@ gcloud run deploy "$BACKEND_SERVICE" \
   --session-affinity \
   --min-instances 0 \
   --max-instances 10 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION" \
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,FIREBASE_SERVICE_ACCOUNT_PATH=/app/boardyboo-d6d82-firebase-adminsdk-fbsvc-c0cbac08cd.json,FIREBASE_PROJECT_ID=boardyboo-d6d82" \
   --quiet
 
 BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE" \
@@ -86,7 +86,7 @@ gcloud run deploy "$FRONTEND_SERVICE" \
   --min-instances 0 \
   --max-instances 5 \
   --set-env-vars "NODE_ENV=production" \
-  --build-env-vars "NEXT_PUBLIC_API_URL=$BACKEND_URL,NEXT_PUBLIC_WS_URL=$WS_URL" \
+  --set-build-env-vars "NEXT_PUBLIC_API_URL=$BACKEND_URL,NEXT_PUBLIC_WS_URL=$WS_URL,NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAG3r2zinXcr4xjwWr8crrQPMSZb3_lfMo,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=boardyboo-d6d82.firebaseapp.com,NEXT_PUBLIC_FIREBASE_PROJECT_ID=boardyboo-d6d82,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=boardyboo-d6d82.firebasestorage.app,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=348284926729,NEXT_PUBLIC_FIREBASE_APP_ID=1:348284926729:web:a5ed70fdd558a3312a71d8" \
   --quiet
 
 FRONTEND_URL=$(gcloud run services describe "$FRONTEND_SERVICE" \

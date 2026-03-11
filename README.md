@@ -143,6 +143,34 @@ Low-latency audio I/O using custom AudioWorklet processors with a ring buffer (~
 | **Deployment** | Google Cloud Run (backend + frontend), Cloud Build |
 | **Audio** | AudioWorklet (16kHz capture, 24kHz playback, ring buffer) |
 
+We utilized a modern, serverless, and highly async stack to pull off the real-time multimodal experience:
+
+AI & Agents
+
+Gemini 2.5 Flash Native Audio API: Handled zero-latency, bidirectional audio streaming between the student and the tutor persona.
+Gemini 3 Pro Image Preview: Generated contextual images directly onto the canvas.
+Google Agent Development Kit (ADK): Orchestrated the entire multi-agent hierarchy (Tutor, Planner, Calendar, Progress), handling tool execution, session management, and seamless handoffs.
+Backend Architecture
+
+FastAPI / Uvicorn (Python): The async web framework managing the active WebSocket session and LiveRequestQueue for Gemini.
+WebSockets (Bidirectional PCM): Transport layer for sending raw 16kHz audio blobs and JSON payloads (canvas_elements, 
+image
+) constantly between client and server.
+Pydantic: Strictly typed environment parsing schemas for the agent toolsets.
+Frontend & User Interface
+
+Next.js 15 (App Router) & React 19: Powered the lightning-fast, reactive dashboard UI and page layouts.
+Excalidraw: Embedded as the digital canvas engine. Our backend piped custom JSON elements directly into Excalidraw’s updateScene() API from the LLM.
+Framer Motion: Provided smooth UI transitions and states (like the mic spinner and drawing animations).
+Google Cloud & Infrastructure
+
+Google Cloud Run: Hosted the containerized FastAPI backend, scaling to zero gracefully when no students are studying.
+Firebase Authentication: Secured user accounts allowing students to return to their same study session later.
+Firestore (NoSQL): Stored all user progress. We structured data into sub-collections (/users/{uid}/progress, /sessions, /quizzes) to maintain strict data isolation and rapid querying.
+Google Cloud Storage: Held the generated and user-scanned canvas snapshots for persistence.
+External Integrations
+
+Model Context Protocol (MCP): We stood up local MCP servers to standardize agent integration with external tools (Google Calendar API, Gmail API).
 ---
 
 ## 🚀 Quick Start (Local Development)

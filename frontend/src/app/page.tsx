@@ -545,17 +545,21 @@ export default function HomePage() {
             </div>
             <span className="land-brand-name">BoardyBoo</span>
           </div>
+          <div className="land-footer-links-row">
+            <Link href="/privacy" className="land-footer-link">Privacy Policy</Link>
+            <Link href="/terms" className="land-footer-link">Terms of Service</Link>
+            <a
+              href="https://github.com/HamaRegaya/BoardyBoo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="land-footer-link"
+            >
+              <IconGithub />
+            </a>
+          </div>
           <p className="land-footer-copy">
             Built for Students Everywhere &mdash; &copy; {new Date().getFullYear()}
           </p>
-          <a
-            href="https://github.com/HamaRegaya/BoardyBoo"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="land-footer-link"
-          >
-            <IconGithub />
-          </a>
         </div>
       </footer>
     </div>

@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 # ── Text measurement helper ───────────────────────────────────────────────────
 
 _CHAR_WIDTH_RATIO = 0.8    # approximate width-per-pixel relative to font_size (Virgil/handwriting font runs wide)
-_LINE_HEIGHT_RATIO = 1.05  # line height relative to font_size
+_LINE_HEIGHT_RATIO = 1.6   # line height relative to font_size (Excalidraw Virgil font needs generous spacing)
 _H_PAD = 24                # horizontal padding inside a box (each side)
 _V_PAD = 14                # vertical padding inside a box (each side)
 
 # Auto-advancing Y cursor so consecutive text writes stack vertically.
 # Reset by clear_canvas.
-_TEXT_SPACING = 2           # vertical gap between consecutive text blocks
+_TEXT_SPACING = 20          # vertical gap between consecutive text blocks
 _cursor_y: float = 60.0    # current vertical cursor position
 _CURSOR_Y_INIT: float = 60.0
 _CURSOR_MARGIN: float = 40.0  # gap between existing content and new tutor text
@@ -118,12 +118,12 @@ _LATEX_CMDS: list[tuple[str, str]] = [
     (r'\\neq',           '\u2260'), (r'\\approx',       '\u2248'),
     (r'\\equiv',         '\u2261'), (r'\\sim',          '~'),
     (r'\\subset',        '\u2282'), (r'\\supset',       '\u2283'),
-    (r'\\notin',         '\u2209'), (r'\\in',           '\u2208'),
+    (r'\\notin',         '\u2209'), (r'\\in(?![a-zA-Z])', '\u2208'),
     (r'\\cup',           '\u222a'), (r'\\cap',          '\u2229'),
     (r'\\forall',        '\u2200'), (r'\\exists',       '\u2203'),
     (r'\\nabla',         '\u2207'), (r'\\partial',      '\u2202'),
     (r'\\sum',           '\u03a3'), (r'\\prod',         '\u03a0'),
-    (r'\\int',           '\u222b'), (r'\\oint',         '\u222e'),
+    (r'\\oint',          '\u222e'), (r'\\int',          '\u222b'),
     # sqrt without braces (braced form handled separately before this list)
     (r'\\sqrt(?!\{)',    '\u221a'),
     (r'\\ldots',         '\u2026'), (r'\\cdots',        '\u2026'),
@@ -153,34 +153,62 @@ def _apply_sub(match: _re.Match) -> str:  # type: ignore[type-arg]
 
 
 def _normalize_math_text(text: str) -> str:
-    """Convert LaTeX / ASCII math notation to plain Unicode for canvas display."""
+    """Convert LaTeX / ASCII math notation to plain Unicode for canvas display.
+
+    Aggressively strips ALL LaTeX formatting so nothing like ``$...$``,
+    ``\\color``, ``\\text``, or ``\\mathrm`` ever reaches the canvas.
+    """
     # 1. Strip outer LaTeX math delimiters: $...$, $$...$$, \[...\], \(...\)
     text = _re.sub(r'\$\$(.+?)\$\$', r'\1', text, flags=_re.DOTALL)
     text = _re.sub(r'\$(.+?)\$',     r'\1', text, flags=_re.DOTALL)
     text = _re.sub(r'\\\[(.+?)\\\]', r'\1', text, flags=_re.DOTALL)
     text = _re.sub(r'\\\((.+?)\\\)', r'\1', text, flags=_re.DOTALL)
 
-    # 2. \sqrt{expr} -> sqrt-symbol + expr  (handle braced form first)
+    # 2. \color commands — strip the command, keep the content.
+    #    Handles: \color{red}{text}, \color{#abc123}{text},
+    #             \color#abc123  (no braces, just hex), \textcolor{...}{text}
+    text = _re.sub(r'\\(?:text)?color\s*\{[^}]*\}\s*\{([^}]*)\}', r'\1', text)
+    text = _re.sub(r'\\(?:text)?color\s*\{[^}]*\}', '', text)
+    text = _re.sub(r'\\(?:text)?color\s*#[0-9a-fA-F]{3,8}', '', text)
+
+    # 3. \text{...}, \mathrm{...}, \mathbf{...}, \textbf{...}, \textit{...},
+    #    \mathit{...}, \boldsymbol{...}, \operatorname{...}
+    text = _re.sub(
+        r'\\(?:text|textrm|textbf|textit|texttt|mathrm|mathbf|mathit|mathbb|'
+        r'mathcal|mathsf|boldsymbol|operatorname|displaystyle|scriptstyle)'
+        r'\s*\{([^}]*)\}',
+        r'\1', text,
+    )
+
+    # 4. \left, \right, \big, \Big, \bigg, \Bigg — just remove them
+    text = _re.sub(r'\\(?:left|right|[bB]ig{1,2})\s*([()\[\]|.]?)', r'\1', text)
+
+    # 5. Spacing commands → plain space or nothing
+    text = _re.sub(r'\\(?:quad|qquad|enspace|thinspace)', ' ', text)
+    text = _re.sub(r'\\[,;!]', '', text)
+    # \  (backslash-space) → space
+    text = _re.sub(r'\\ ', ' ', text)
+
+    # 6. \sqrt{expr} -> sqrt-symbol + expr
     text = _re.sub(r'\\sqrt\s*\{([^}]*)\}', '\u221a' + r'\1', text)
-    # \sqrt x  (no braces, single token)
     text = _re.sub(r'\\sqrt\s+(\S)',         '\u221a' + r'\1', text)
 
-    # 3. \frac{num}{den} -> (num)/(den)
+    # 7. \frac{num}{den} -> (num)/(den)
     text = _re.sub(r'\\frac\s*\{([^}]*)\}\s*\{([^}]*)\}', r'(\1)/(\2)', text)
 
-    # 4. All other LaTeX commands -> Unicode
+    # 8. All known LaTeX commands -> Unicode
     for pattern, replacement in _LATEX_CMDS:
         text = _re.sub(pattern, replacement, text)
 
-    # 5. ^{exponent} or ^x  ->  superscript Unicode
+    # 9. ^{exponent} or ^x  ->  superscript Unicode
     text = _re.sub(r'\^\{([^}]*)\}', lambda m: m.group(1).translate(_SUP_MAP), text)
     text = _re.sub(r'\^([0-9nij])',  lambda m: m.group(1).translate(_SUP_MAP), text)
 
-    # 6. _{subscript} or _x  ->  subscript Unicode
+    # 10. _{subscript} or _x  ->  subscript Unicode
     text = _re.sub(r'_\{([^}]*)\}', lambda m: m.group(1).translate(_SUB_MAP), text)
     text = _re.sub(r'_([0-9])',      lambda m: m.group(1).translate(_SUB_MAP), text)
 
-    # 7. Plain-English / ASCII fallbacks (word-boundary safe, case-insensitive)
+    # 11. Plain-English / ASCII fallbacks
     _plain_subs: list[tuple[str, str]] = [
         (r'\bsqrt\s*\(', '\u221a('),
         (r'\bsqrt\b',    '\u221a'),
@@ -203,8 +231,15 @@ def _normalize_math_text(text: str) -> str:
     for pattern, replacement in _plain_subs:
         text = _re.sub(pattern, replacement, text, flags=_re.IGNORECASE)
 
-    # 8. Remove any leftover lone braces from LaTeX grouping
+    # 12. Remove any leftover lone braces from LaTeX grouping
     text = _re.sub(r'(?<!\\)[{}]', '', text)
+
+    # 13. Catch-all: strip any remaining \command that wasn't handled above.
+    #     Keeps the content after the command name.
+    text = _re.sub(r'\\[a-zA-Z]+\s*', '', text)
+
+    # 14. Clean up double/triple spaces left behind
+    text = _re.sub(r'  +', ' ', text)
 
     return text
 

@@ -9,7 +9,7 @@ Agent tree
 tutor_agent (native audio — "Aoede", warm & encouraging)
 ├── planner_agent — creates study plans
 ├── calendar_agent — schedules sessions
-└── progress_agent — quizzes, mastery tracking, email reports
+
 
 Canvas and image tools (write_text_on_canvas, draw_diagram, generate_and_show_image, etc.)
 are on the tutor agent directly.
@@ -62,7 +62,7 @@ You also have specialised assistant agents.  **Transfer** to them when needed:
 |-------|------------------|
 | **planner_agent** | Creating or reviewing study plans and learning goals. |
 | **calendar_agent** | Scheduling, rescheduling, or viewing study sessions. |
-| **progress_agent** | Running quizzes, updating mastery scores, sending progress emails. |
+
 
 ## Your direct tools
 - `write_text_on_canvas` — write text/equations on the whiteboard.
@@ -101,7 +101,6 @@ recent developments, search the web before answering.
 3. **Explain** the concept clearly, using analogies and simple language.
 4. **Visualise** — use your canvas tools to draw diagrams, steps, or equations directly on the whiteboard.
 5. **Practice** — give practice problems and check answers.
-6. **Quiz** — transfer to progress_agent for a short assessment.
 7. **Reinforce** — praise effort, summarise key takeaways, save notes.
 
 CRITICAL — no announcement rule:

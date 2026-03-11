@@ -43,79 +43,66 @@ Today's students are stuck with **static, text-based AI chatbots** that feel lik
 ## 🏗️ Architecture
 
 ```mermaid
-graph TB
-    subgraph "Frontend — Next.js 15 on Cloud Run"
-        A["🎓 Student Browser"]
-        A1["Excalidraw Canvas"]
-        A2["AudioWorklet — 16kHz Mic"]
-        A3["AudioWorklet — 24kHz Speaker"]
-        A4["📷 Camera / Webcam"]
-        A5["Transcript Panel"]
+graph LR
+    subgraph User["👤 User Interactions"]
+        direction TB
+        mic["🎤 Voice"]
+        cam["📷 Camera"]
+        draw["✏️ Drawing"]
     end
 
-    subgraph "Backend — FastAPI on Cloud Run"
-        B["WebSocket Endpoint"]
-        
-        subgraph "Google ADK Agent Tree"
-            C["🎨 Tutor Agent — Root"]
-            D["📅 Calendar Agent"]
-            E["📊 Progress Agent"]
-            F["📋 Planner Agent"]
-        end
-        
-        subgraph "Tools"
-            T1["Canvas Tools — 7 tools"]
-            T2["Plot Tools — animated graphs"]
-            T3["Media Tools — Imagen"]
-            T4["Storage Tools — GCS"]
-            T5["Google Search — grounding"]
-        end
+    subgraph Frontend["BoardyBoo Frontend\nNext.js 15 + React 19"]
+        direction TB
+        canvas["Excalidraw Canvas"]
+        audio["AudioWorklet\n16kHz ↑ · 24kHz ↓"]
+        transcript["Transcript Panel"]
     end
 
-    subgraph "Gemini Models"
-        G1["Gemini 2.5 Flash\nNative Audio Bidi"]
-        G2["Gemini 3 Pro\nImage Generation"]
+    subgraph Backend["BoardyBoo Backend\nFastAPI + ADK"]
+        direction TB
+        ws["WebSocket Endpoint"]
     end
 
-    subgraph "Google Cloud Services"
-        H1[("Cloud Firestore")]
-        H2[("Cloud Storage")]
-        H3["Calendar API"]
-        H4["Gmail API"]
-        H5["Google Search"]
+    subgraph AgentTree["Multi-Agent Pipeline with\nGoogle ADK"]
+        direction TB
+        tutor["1. Tutor Agent — Root\nPurpose: Voice conversation,\nwhiteboard drawing & teaching"]
+        planner["2. Planner Agent\nPurpose: Create weekly\nstudy plans from progress"]
+        calendar["3. Calendar Agent\nPurpose: Schedule sessions\non Google Calendar"]
+        progress["4. Progress Agent\nPurpose: Quizzes, mastery\ntracking & email reports"]
     end
 
-    A -- "PCM 16kHz" --> B
-    A4 -- "JPEG" --> B
-    A1 -- "Snapshots" --> B
-    B -- "PCM 24kHz" --> A3
-    B -- "Canvas Cmds" --> A1
-    B -- "Transcript" --> A5
+    subgraph Models["GenAI Models through\nGemini API"]
+        direction TB
+        flash["Voice + Reasoning\nGemini 2.5 Flash\nNative Audio"]
+        imagen["Image Generation\nImagen 3"]
+        search["Fact Verification\nGoogle Search"]
+    end
 
-    B <--> C
-    C --> D & E & F
-    C --> T1 & T2 & T3 & T4 & T5
+    subgraph Cloud["Google Cloud\nServices"]
+        direction TB
+        firestore[("Cloud Firestore")]
+        storage[("Cloud Storage")]
+        calapi["Calendar API"]
+        gmail["Gmail API"]
+    end
 
-    C <--> G1
-    T3 <--> G2
-
-    C --> H1
-    T4 --> H2
-    D --> H3
-    E --> H4
-    T5 --> H5
+    User -.-> Frontend
+    Frontend <-- "WebSocket\nBidi Stream" --> Backend
+    Backend -.-> AgentTree
+    AgentTree -.-> Models
+    AgentTree -.-> Cloud
 ```
 
 ### Agent Architecture
 
-| Agent | Role | Tools |
-|-------|------|-------|
-| **Tutor Agent** (root) | Voice conversation, whiteboard drawing, teaching | 7 canvas tools, image gen, plot, progress, search grounding |
-| **Planner Agent** | Creates weekly study plans | get/save study plans, progress |
-| **Calendar Agent** | Schedules sessions on Google Calendar | 5 calendar tools (CRUD + availability) |
-| **Progress Agent** | Quizzes, mastery tracking, email reports | quiz results, mastery updates, Gmail |
+| Agent | Purpose | Key Tools |
+|-------|---------|-----------|
+| **🎨 Tutor Agent** (root) | Voice conversation, live whiteboard drawing, teaching, image generation | 7 canvas tools, plot, image gen, Google Search grounding |
+| **📋 Planner Agent** | Creates personalised weekly study plans | study plan CRUD, progress data |
+| **📅 Calendar Agent** | Schedules sessions on Google Calendar | 5 calendar tools (CRUD + availability) |
+| **📊 Progress Agent** | Quizzes, mastery tracking, email reports | quiz results, mastery updates, Gmail |
 
-All agents use **Gemini 2.5 Flash Native Audio** for natural voice with `StreamingMode.BIDI` via Google ADK's `runner.run_live()`.
+The **Tutor Agent** is the root of the tree and delegates to 3 specialised sub-agents via ADK's `transfer_to_agent`. All agents use **Gemini 2.5 Flash Native Audio** for natural voice with `StreamingMode.BIDI` via Google ADK's `runner.run_live()`.
 
 ---
 

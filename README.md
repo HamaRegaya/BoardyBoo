@@ -29,6 +29,8 @@ Today's students are stuck with **static, text-based AI chatbots** that feel lik
 
 ## 💡 The Solution
 
+<img width="1920" height="1080" alt="BoardyBoo (2)" src="https://github.com/user-attachments/assets/25eb71ec-4e3e-490d-b364-51fce41dfadf" />
+
 **BoardyBoo** is an AI tutor that behaves like a real teacher standing at a whiteboard:
 
 - **🗣️ Speaks naturally** — bidirectional voice streaming with interruption support (Gemini 2.5 Flash Native Audio)

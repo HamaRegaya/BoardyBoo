@@ -18,6 +18,9 @@
   <img src="https://img.shields.io/badge/Next.js_15-React_19-000000?style=flat&logo=nextdotjs&logoColor=white" />
 </p>
 
+<img width="1920" height="1080" alt="BoardyBoo (1)" src="https://github.com/user-attachments/assets/b904fed7-8903-4a1c-aa64-80f85b7e8043" />
+
+
 ---
 
 ## 🎯 The Problem

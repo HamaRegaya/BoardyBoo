@@ -45,6 +45,8 @@ Today's students are stuck with **static, text-based AI chatbots** that feel lik
 
 ## 🏗️ Architecture
 
+<img width="1920" height="1080" alt="BoardyBoo" src="https://github.com/user-attachments/assets/298835ee-f1ef-4a50-bb98-e6c4840d7d5e" />
+
 ```mermaid
 graph LR
     subgraph User["👤 User Interactions"]

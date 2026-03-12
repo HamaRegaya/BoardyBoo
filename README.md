@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/images/boardyboo-logo.png" alt="BoardyBoo Logo" width="120" />
+  <img alt="BoardyBoo Logo" width="120" src="https://github.com/user-attachments/assets/3742d7a9-4102-4ec4-a923-fc078ee7efde" />
 </p>
 
 <h1 align="center">BoardyBoo — AI Whiteboard Tutor</h1>

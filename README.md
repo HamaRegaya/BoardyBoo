@@ -50,7 +50,8 @@ Today's students are stuck with **static, text-based AI chatbots** that feel lik
 <img width="1920" height="1080" alt="BoardyBoo" src="https://github.com/user-attachments/assets/298835ee-f1ef-4a50-bb98-e6c4840d7d5e" />
 
 ```mermaid
-graph LR
+graph TB
+    %% User Interactions
     subgraph User["👤 User Interactions"]
         direction TB
         mic["🎤 Voice"]
@@ -58,46 +59,66 @@ graph LR
         draw["✏️ Drawing"]
     end
 
-    subgraph Frontend["BoardyBoo Frontend\nNext.js 15 + React 19"]
+    %% Google Cloud Run Services
+    subgraph Services["⏩ Google Cloud Run Services"]
         direction TB
-        canvas["Excalidraw Canvas"]
-        audio["AudioWorklet\n16kHz ↑ · 24kHz ↓"]
-        transcript["Transcript Panel"]
+        subgraph Frontend["BoardyBoo Frontend\nNext.js 15 UI ⚛️ React"]
+            excal["Excalidraw Canvas"]
+            voice["🔉 Voice"]
+        end
+        
+        subgraph Backend["BoardyBoo Backend\n⚡ FastAPI Service + 🤖 ADK"]
+            ws["WebSocket Bidi Stream"]
+        end
+
+        Frontend <--> ws
     end
 
-    subgraph Backend["BoardyBoo Backend\nFastAPI + ADK"]
+    %% Multi-Agent Pipeline
+    subgraph Pipeline["🤖 Multi-Agent Pipeline with Google ADK"]
         direction TB
-        ws["WebSocket Endpoint"]
+        tutor["👨‍🏫 Tutor Agent\nPurpose: Voice conversation,\nwhiteboard drawing & teaching"]
+        
+        planner["📝 Planner Agent\nPurpose: Create weekly study\nplans from progress"]
+        calendar["📅 Calendar Agent\nPurpose: Schedule sessions\non Google Calendar"]
+        progress["✅ Progress Agent\nPurpose: Quizzes, mastery\ntracking & email reports"]
+
+        tutor -.-> planner
+        tutor -.-> calendar
+        tutor -.-> progress
     end
 
-    subgraph AgentTree["Multi-Agent Pipeline with\nGoogle ADK"]
+    %% Tools
+    subgraph Tools["🛠️ Tools"]
         direction TB
-        tutor["1. Tutor Agent — Root\nPurpose: Voice conversation,\nwhiteboard drawing & teaching"]
-        planner["2. Planner Agent\nPurpose: Create weekly\nstudy plans from progress"]
-        calendar["3. Calendar Agent\nPurpose: Schedule sessions\non Google Calendar"]
-        progress["4. Progress Agent\nPurpose: Quizzes, mastery\ntracking & email reports"]
+        search_tool["🔎 Search tool\nPurpose: ensures accuracy and up-to-\ndateness by searching for facts"]
+        canvas_tool["🎨 Canvas tools\nPurpose: Visually explain concepts, draw\ndiagrams, write equations"]
+        media_tool["🖼️ Media & Image Tools\nPurpose: generate and display images,\ncapture the state of the whiteboard"]
+        prog_tool["📊 Progress & Session Tools\nPurpose: track learning progress, update\nmastery levels"]
     end
 
-    subgraph Models["GenAI Models through\nGemini API"]
+    %% GenAI Models
+    subgraph Models["GenAI Models through Gemini API"]
         direction TB
-        flash["Voice + Reasoning\nGemini 2.5 Flash\nNative Audio"]
-        imagen["Image Generation\nImagen 3"]
-        search["Fact Verification\nGoogle Search"]
+        g_search["🇬 Fact Verification\nGoogle Search"]
+        g_img["✨ Gemini-3-pro\nImage-preview"]
+        g_audio["🔉 Gemini 2.5 Flash\nNative Audio"]
     end
 
-    subgraph Cloud["Google Cloud\nServices"]
+    %% Cloud Services
+    subgraph Cloud["Google Cloud Services"]
         direction TB
-        firestore[("Cloud Firestore")]
-        storage[("Cloud Storage")]
-        calapi["Calendar API"]
-        gmail["Gmail API"]
+        storage["☁️ Cloud Storage"]
+        firestore["🔥 Cloud Firestore"]
+        cal_api["📅 Calendar API"]
     end
 
-    User -.-> Frontend
-    Frontend <-- "WebSocket\nBidi Stream" --> Backend
-    Backend -.-> AgentTree
-    AgentTree -.-> Models
-    AgentTree -.-> Cloud
+    %% Main Connections
+    User <--> Frontend
+    ws <--> Pipeline
+    tutor <--> Tools
+    Pipeline <--> Models
+    Pipeline <--> Cloud
 ```
 
 ### Agent Architecture

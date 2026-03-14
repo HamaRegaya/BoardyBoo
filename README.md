@@ -25,6 +25,8 @@
 
 ## 🎯 The Problem
 
+<img width="1920" height="1080" src='https://i.postimg.cc/68KWR9G5/problem-statement.png' border='0' alt='problem-statement'>
+
 When I was a child, my mom used to sit with me every evening and help me with my homework. But as I grew older, things changed. She had to focus on my younger brothers, and math at my level became harder for her to teach.
 
 Today, many students turn to AI for help, but it's backfiring. **88% of students use AI for homework**, yet they score **17% worse on tests**. They're getting answers, not learning. (*Sources: HEPI Global Student Survey, 2025 & University of Pennsylvania / Hechinger Report*)

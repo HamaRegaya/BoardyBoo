@@ -132,6 +132,17 @@ graph TB
 
 The **Tutor Agent** is the root of the tree and delegates to 3 specialised sub-agents via ADK's `transfer_to_agent`. All agents use **Gemini 2.5 Flash Native Audio** for natural voice with `StreamingMode.BIDI` via Google ADK's `runner.run_live()`.
 
+### Core Tools
+
+| Tool Category | Description | Tools |
+|---------------|-------------|-------|
+| 🎨 **Canvas Mechanics** | Core tools for manipulating the Excalidraw whiteboard | `draw_line`, `draw_rectangle`, `draw_circle`, `add_text`, `remove_element`, `clear_canvas`, `highlight_area` |
+| 🖼️ **Media & Vision** | Tools for generating graphics and seeing user input | `generate_image (Gemini 3 Pro)` , `capture_canvas_snapshot`, `analyze_camera_feed` |
+| 📈 **Math & Logic** | Specialised teaching tools | `plot_function`, `google_search (Grounding)`  |
+| 📅 **Scheduling** | Google Calendar integration via Calendar MCP | `list_events`, `create_event`, `update_event`, `delete_event`, `check_availability` |
+| 📊 **Progress (Firestore)**| Student data persistence | `update_mastery`, `save_quiz_results`, `create_study_plan`, `get_student_history` |
+
+
 ---
 
 ## ✨ Key Technical Innovations

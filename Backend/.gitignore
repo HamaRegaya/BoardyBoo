@@ -13,6 +13,8 @@ build/
 # Environment variables
 .env
 
+cloudrun.env
+all_env.yaml
 # IDE
 .vscode/
 .idea/

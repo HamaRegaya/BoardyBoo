@@ -25,7 +25,8 @@
 
 ## 🎯 The Problem
 
-<img width="1920" height="1080" src='https://i.postimg.cc/68KWR9G5/problem-statement.png' border='0' alt='problem-statement'>
+<img width="1920" height="1080" alt="BoardyBoo (1)" src="https://i.postimg.cc/c0Tw8tPD/problem-statement.png" />
+
 
 When I was a child, my mom used to sit with me every evening and help me with my homework. But as I grew older, things changed. She had to focus on my younger brothers, and math at my level became harder for her to teach.
 

@@ -185,6 +185,26 @@ Low-latency audio I/O using custom AudioWorklet processors with a ring buffer (~
 
 ---
 
+## 🎥 Features In Action
+
+### 🧮 Mathematical Function Plotting
+The Tutor Agent can draw animated, precise mathematical graphs and functions progressively on the canvas.
+![math function plot](https://i.postimg.cc/Nfx1gQV0/Product-Launch-Video.gif)
+
+### 🧠 MindMapping Complex Topics
+Break down complex topics automatically with detailed, responsive mind maps drawn right before your eyes.
+![MindMap](https://i.postimg.cc/HLk3Grk0/mindmap.gif)
+
+### 📊 Flowcharts & Process Diagrams
+Visualize workflows, steps, and protocols — such as this automated Scrum framework flowchart.
+![flowchart scrum](https://i.postimg.cc/9Xp6jhLF/flowchart.gif)
+
+### 📅 Seamless Session Scheduling
+The Calendar Agent connects directly to your Google Calendar, finding time slots and booking study sessions through natural conversation.
+![calendar](https://i.postimg.cc/QC91SsCZ/calendar.gif)
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |

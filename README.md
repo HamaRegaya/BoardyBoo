@@ -25,7 +25,11 @@
 
 ## 🎯 The Problem
 
-Today's students are stuck with **static, text-based AI chatbots** that feel like talking to a search engine. Real learning happens at a whiteboard — where a teacher speaks, draws diagrams, plots equations, and watches the student work. No existing tool combines all of these modalities into one seamless, real-time experience.
+When I was a child, my mom used to sit with me every evening and help me with my homework. But as I grew older, things changed. She had to focus on my younger brothers, and math at my level became harder for her to teach.
+
+Today, many students turn to AI for help, but it's backfiring. **88% of students use AI for homework**, yet they score **17% worse on tests**. They're getting answers, not learning. (*Sources: HEPI Global Student Survey, 2025 & University of Pennsylvania / Hechinger Report*)
+
+Students are stuck with **static, text-based AI chatbots** that feel like talking to a search engine. Real learning happens at a whiteboard — where a teacher speaks, draws diagrams, plots equations, and watches the student work. No existing tool combines all of these modalities into one seamless, real-time experience.
 
 ## 💡 The Solution
 

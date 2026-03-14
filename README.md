@@ -43,6 +43,18 @@ Today's students are stuck with **static, text-based AI chatbots** that feel lik
 
 > **This isn't a chatbot with a canvas bolted on — it's an immersive tutoring experience where voice, vision, and drawing work simultaneously.**
 
+  ### 🎨 Customize Your Tutor
+
+  Every student learns differently. BoardyBoo lets you create and customize your own AI tutors with unique personalities, teaching styles, and voices.
+
+  <p align="center">
+    <img alt="Customize Your Tutor" src="https://i.postimg.cc/rsmQkvp5/customize.gif" />
+  </p>
+
+  - **Personality & Persona:** Make your tutor a strict professor, a friendly mentor, or even a historical figure.
+  - **Teaching Style:** Choose how they explain concepts (e.g., visual heavy, analogy driven, Socratic method).
+  - **Voice Selection:** Pick the perfect Gemini 2.5 Flash Native Audio voice for your tutor.
+
 ---
 
 ## 🏗️ Architecture
@@ -141,7 +153,6 @@ The **Tutor Agent** is the root of the tree and delegates to 3 specialised sub-a
 | 📈 **Math & Logic** | Specialised teaching tools | `plot_function`, `google_search (Grounding)`  |
 | 📅 **Scheduling** | Google Calendar integration via Calendar MCP | `list_events`, `create_event`, `update_event`, `delete_event`, `check_availability` |
 | 📊 **Progress (Firestore)**| Student data persistence | `update_mastery`, `save_quiz_results`, `create_study_plan`, `get_student_history` |
-
 
 ---
 

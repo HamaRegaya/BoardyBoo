@@ -66,7 +66,7 @@ Students are stuck with **static, text-based AI chatbots** that feel like talkin
 
 ## 🏗️ Architecture
 
-<img width="1920" height="1080" alt="BoardyBoo" src="https://github.com/user-attachments/assets/298835ee-f1ef-4a50-bb98-e6c4840d7d5e" />
+<img width="1920" height="1080" alt="BoardyBoo" src="https://i.postimg.cc/tJ60RXPc/Boardy-Boo-architecture.png" />
 
 ```mermaid
 graph TB
@@ -117,7 +117,7 @@ graph TB
     end
 
     %% GenAI Models
-    subgraph Models["GenAI Models through Gemini API"]
+    subgraph Models["GenAI Models through Vertex AI"]
         direction TB
         g_search["🇬 Fact Verification\nGoogle Search"]
         g_img["✨ Gemini-3-pro\nImage-preview"]
